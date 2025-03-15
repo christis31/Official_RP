@@ -1,6 +1,6 @@
 ################################################################################
 #Combining the glyco- data
-##################################################################
+################################################################################
 
 #Download appropriate libraries
 if("librarian" %in% installed.packages()==FALSE) install.packages("librarian")
@@ -8,17 +8,16 @@ librarian::shelf(tidyverse, purrr, data.table, tidytable)
 
 
 #data input
-file.choose()
-gly1 <- read.csv("./data\\glyco\\human_proteoform_glycosylation1.csv")%>%
+gly1 <- read.csv("./data\\raw\\glyco\\human_proteoform_glycosylation1.csv")%>%
   as.data.table
 #https://data.glygen.org/GLY_000329
-gly2 <- read.csv("./data\\glyco\\human_proteoform_glycosylation2.csv")%>%
+gly2 <- read.csv("./data\\raw\\glyco\\human_proteoform_glycosylation2.csv")%>%
   as.data.table
 #https://data.glygen.org/GLY_000040
-gly3 <- read.csv("./data\\glyco\\human_proteoform_glycosylation3.csv")%>%
+gly3 <- read.csv("./data\\raw\\glyco\\human_proteoform_glycosylation3.csv")%>%
   as.data.table
 #https://data.glygen.org/GLY_000142
-gly4 <- read.csv("data\\glyco\\glycosmos_glycoproteins_list.csv")%>%
+gly4 <- read.csv("data\\raw\\glyco\\glycosmos_glycoproteins_list.csv")%>%
   as.data.table
 #https://download.glycosmos.org/glycosmos_glycoproteins_list.csv
 
@@ -107,15 +106,10 @@ gly3 <- gly3 %>%
 gly4 <- gly4 %>%
   select(UniProt.ID,GlyTouCan.IDs, Protein.Name)
 
-<<<<<<< Updated upstream
 #merging the first 3 datasets
-=======
-  
-  #mergingt the first 3 datasets
-  >>>>>>> Stashed changes
 merge1 <- bind_rows(gly1, gly2, gly3)
 
-#rename GlyTouCan.ID and UniPrcolumn to saccharide
+#rename GlyTouCan.ID and UniProtcolumn to saccharide
 gly4 <- gly4 %>%
   rename(saccharide = GlyTouCan.IDs)%>%
   rename(uniprotkb_canonical_ac = UniProt.ID)
@@ -125,23 +119,24 @@ finalgly <- full_join(merge1, gly4, by = c("uniprotkb_canonical_ac", "saccharide
 
 #get rid of isoform symbol on the protein id column (-1)
 finalgly <- finalgly %>%
-  <<<<<<< Updated upstream
 mutate(uniprotkb_canonical_ac = gsub("-\\d+$", "", uniprotkb_canonical_ac))%>%
   unique() %>%
   arrange(saccharide)
 
 # integrate gene names 
-
 #ANNOTATE GENE SYMBOL VIA UNIPROT_ID, delete gene symbol form gly4
+#Export the clean only glyco data
 
-=======
-  mutate(uniprotkb_canonical_ac = gsub("-\\d+$", "", uniprotkb_canonical_ac)) %>%
-  arrange(saccharide) #all rows with the same saccharide ID grouped
+saveRDS(
+  finalgly,
+  file = "./data\\intermediate\\data_clean_gly.RDS"
+)
 
-#ANNOTATE GENE SYMBOL VIA UNIPROT_ID, delete gene symbol form gly4
-
-final2 <- unique(finalgly)
->>>>>>> Stashed changes
+write.csv(
+  finalgly,
+  file = "./data\\intermediate\\data_clean_gly.csv",
+  row.names = FALSE
+)
 
 #######################################################################################
 
@@ -152,11 +147,7 @@ enz <- read.csv("./data\\glyco\\glycan_enzyme.csv")
 
 enz <- enz %>%
   select(uniprotkb_ac, glytoucan_ac, gene_name,enzyme_type) %>%
-  <<<<<<< Updated upstream
-rename(enzyme_ID = uniprotkb_ac) %>% # to be distinguished from protein ID in gly data
-  =======
-  >>>>>>> Stashed changes
-rename(enzyme_uniprot_ID = uniprotkb_ac) %>% # to be distinguished from protein ID in gly data
+  rename(enzyme_uniprot_ID = uniprotkb_ac) %>% # to be distinguished from protein ID in gly data
   rename (enz_gene  = gene_name) %>%
   rename(saccharide = glytoucan_ac) # to be aligned with gly data
 
@@ -176,3 +167,5 @@ glyenz2 <- finalgly %>%
             enzyme_type = paste(unique(enzyme_type), collapse = ","),
             enz_gene = paste(unique(enz_gene), collapse = ","),
             .groups = "drop")
+
+#################################################################################
