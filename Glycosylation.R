@@ -4,7 +4,7 @@
 
 #Download appropriate libraries
 if("librarian" %in% installed.packages()==FALSE) install.packages("librarian")
-librarian::shelf(tidyverse, purrr, data.table, tidytable, BiocManager, AnnotationDbi, 
+librarian::shelf(tidyverse, purrr, BiocManager, AnnotationDbi, 
                  qvalue, GO.db, org.Hs.eg.db, reshape2)
 if (!require("BiocManager", quietly = TRUE))
 install.packages("BiocManager")
@@ -187,18 +187,20 @@ write.csv(
 #Integrating the enzyme data
 
 #data input
-enz <- read.csv("./data\\glyco\\glycan_enzyme.csv")
+enz <- read.csv("./data\\raw\\glyco\\glycan_enzyme.csv")
 
 enz <- enz %>%
   select(uniprotkb_ac, glytoucan_ac, gene_name,enzyme_type) %>%
   rename(enzyme_uniprot_ID = uniprotkb_ac) %>% # to be distinguished from protein ID in gly data
   rename (enz_gene  = gene_name) %>%
-  rename(saccharide = glytoucan_ac) # to be aligned with gly data
+  rename(saccharide = glytoucan_ac)%>%  # to be aligned with gly data
+  filter(species== "Homo sapiens")
+ 
 
 #create new columns with enzyme id, gene of the enzyme and enzyme types which
 #should be aligned based on the sacchatide ID
 
-glyenz <- finalgly %>%
+glyenz <- data_gly_final %>%
   left_join(enz, by = "saccharide")%>%
   unique()
 
