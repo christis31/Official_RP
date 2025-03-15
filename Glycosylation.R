@@ -10,21 +10,14 @@ if (!require("BiocManager", quietly = TRUE))
 install.packages("BiocManager")
 BiocManager::install(version = "3.20")
 
-BiocManager::install(c("AnnotationDbi", "qvalue", "GO.db", "org.Hs.eg.db"))
-
-getwd()
 #data input
-gly1 <- read.csv("./data\\raw\\glyco\\human_proteoform_glycosylation1.csv")%>%
-  as.data.table
+gly1 <- read.csv("./data\\raw\\glyco\\human_proteoform_glycosylation1.csv")
 #https://data.glygen.org/GLY_000329
-gly2 <- read.csv("./data\\raw\\glyco\\human_proteoform_glycosylation2.csv")%>%
-  as.data.table
+gly2 <- read.csv("./data\\raw\\glyco\\human_proteoform_glycosylation2.csv")
 #https://data.glygen.org/GLY_000040
-gly3 <- read.csv("./data\\raw\\glyco\\human_proteoform_glycosylation3.csv")%>%
-  as.data.table
+gly3 <- read.csv("./data\\raw\\glyco\\human_proteoform_glycosylation3.csv")
 #https://data.glygen.org/GLY_000142
-gly4 <- read.csv("data\\raw\\glyco\\glycosmos_glycoproteins_list.csv")%>%
-  as.data.table
+gly4 <- read.csv("data\\raw\\glyco\\glycosmos_glycoproteins_list.csv")
 #https://download.glycosmos.org/glycosmos_glycoproteins_list.csv
 
 
@@ -114,27 +107,27 @@ gly4 <- gly4 %>%
 
 #select important columns
 gly1 <- gly1 %>%
-  select(uniprotkb_canonical_ac, amino_acid, saccharide, 
+  dplyr::select(uniprotkb_canonical_ac, amino_acid, saccharide, 
          glycosylation_site_uniprotkb, glycosylation_type)
 
 gly2 <- gly2 %>%
-  select(uniprotkb_canonical_ac, amino_acid, saccharide, 
+  dplyr::select(uniprotkb_canonical_ac, amino_acid, saccharide, 
          glycosylation_site_uniprotkb, glycosylation_type)
 
 gly3 <- gly3 %>%
-  select(uniprotkb_canonical_ac, amino_acid, saccharide, 
+  dplyr::select(uniprotkb_canonical_ac, amino_acid, saccharide, 
          glycosylation_site_uniprotkb, glycosylation_type)
 
 gly4 <- gly4 %>%
-  select(UniProt.ID,GlyTouCan.IDs, Protein.Name)
+  dplyr::select(UniProt.ID,GlyTouCan.IDs, Protein.Name)
 
 #merging the first 3 datasets
 merge1 <- bind_rows(gly1, gly2, gly3)
 
 #rename GlyTouCan.ID and UniProtcolumn to saccharide
 gly4 <- gly4 %>%
-  rename(saccharide = GlyTouCan.IDs)%>%
-  rename(uniprotkb_canonical_ac = UniProt.ID)
+  dplyr::rename(saccharide = GlyTouCan.IDs)%>%
+  dplyr::rename(uniprotkb_canonical_ac = UniProt.ID)
 
 #integrating gly 4 
 finalgly <- full_join(
@@ -154,7 +147,7 @@ uniprot_gene <- na.omit(
     AnnotationDbi::select(
       org.Hs.eg.db, finalgly$uniprotkb_canonical_ac, "SYMBOL", "UNIPROT")
     )
-  ) #symbol stands for gene name here
+  )
 
 #check for NA in uniprot
 length(unique(finalgly$uniprotkb_canonical_ac)) #6669 unique unirprotIDs
@@ -190,12 +183,11 @@ write.csv(
 enz <- read.csv("./data\\raw\\glyco\\glycan_enzyme.csv")
 
 enz <- enz %>%
-  select(uniprotkb_ac, glytoucan_ac, gene_name,enzyme_type) %>%
-  rename(enzyme_uniprot_ID = uniprotkb_ac) %>% # to be distinguished from protein ID in gly data
-  rename (enz_gene  = gene_name) %>%
-  rename(saccharide = glytoucan_ac)%>%  # to be aligned with gly data
-  filter(species== "Homo sapiens")
- 
+  dplyr::select(uniprotkb_ac, glytoucan_ac, gene_name,enzyme_type, species) %>%
+  dplyr::rename(enzyme_uniprot_ID = uniprotkb_ac) %>% # to be distinguished from protein ID in gly data
+  dplyr::rename (enz_gene  = gene_name) %>%
+  dplyr::rename(saccharide = glytoucan_ac)%>%
+  filter(species == "Homo sapiens")
 
 #create new columns with enzyme id, gene of the enzyme and enzyme types which
 #should be aligned based on the sacchatide ID
