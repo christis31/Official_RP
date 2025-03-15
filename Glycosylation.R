@@ -4,9 +4,15 @@
 
 #Download appropriate libraries
 if("librarian" %in% installed.packages()==FALSE) install.packages("librarian")
-librarian::shelf(tidyverse, purrr, data.table, tidytable)
+librarian::shelf(tidyverse, purrr, data.table, tidytable, BiocManager, AnnotationDbi, 
+                 qvalue, GO.db, org.Hs.eg.db, reshape2)
+if (!require("BiocManager", quietly = TRUE))
+install.packages("BiocManager")
+BiocManager::install(version = "3.20")
 
+BiocManager::install(c("AnnotationDbi", "qvalue", "GO.db", "org.Hs.eg.db"))
 
+getwd()
 #data input
 gly1 <- read.csv("./data\\raw\\glyco\\human_proteoform_glycosylation1.csv")%>%
   as.data.table
@@ -24,16 +30,24 @@ gly4 <- read.csv("data\\raw\\glyco\\glycosmos_glycoproteins_list.csv")%>%
 
 #replace all empty spaces with NA
 gly1 <- gly1 %>%
-  mutate(saccharide = ifelse(saccharide == "" | saccharide == " ", NA, saccharide))
+  mutate(
+    saccharide = ifelse(saccharide == "" | saccharide == " ", NA, saccharide)
+    )
 
 gly2 <- gly2 %>%
-  mutate(saccharide = ifelse(saccharide == "" | saccharide == " ", NA, saccharide))
+  mutate(
+    saccharide = ifelse(saccharide == "" | saccharide == " ", NA, saccharide)
+    )
 
 gly3 <- gly3 %>%
-  mutate(saccharide = ifelse(saccharide == "" | saccharide == " ", NA, saccharide))
+  mutate(
+    saccharide = ifelse(saccharide == "" | saccharide == " ", NA, saccharide)
+    )
 
 gly4 <- gly4 %>%
-  mutate(GlyTouCan.IDs = ifelse(GlyTouCan.IDs == "" | GlyTouCan.IDs== " ", NA, GlyTouCan.IDs))
+  mutate(
+    GlyTouCan.IDs = ifelse(GlyTouCan.IDs == "" | GlyTouCan.IDs== " ", NA, GlyTouCan.IDs)
+    )
 
 #checking for missing glycanID data
 sum(is.na(gly1$saccharide)) 
@@ -48,21 +62,29 @@ gly2 <- gly2 %>%
 gly4 <- gly4 %>%
   filter(!is.na(GlyTouCan.IDs))
 
-#replace all empty spaces with NA
+#replace all empty spaces with NA for uniprotkb columns
 gly1 <- gly1 %>%
-  mutate(uniprotkb_canonical_ac = ifelse(uniprotkb_canonical_ac == "" | 
-                                           uniprotkb_canonical_ac == " ", NA, uniprotkb_canonical_ac))
+  mutate(
+    uniprotkb_canonical_ac = ifelse(uniprotkb_canonical_ac == "" | 
+                                           uniprotkb_canonical_ac == " ", NA, uniprotkb_canonical_ac)
+    )
 
 gly2 <- gly2 %>%
-  mutate(uniprotkb_canonical_ac = ifelse(uniprotkb_canonical_ac == "" | 
-                                           uniprotkb_canonical_ac == " ", NA, uniprotkb_canonical_ac))
+  mutate(
+    uniprotkb_canonical_ac = ifelse(uniprotkb_canonical_ac == "" | 
+                                           uniprotkb_canonical_ac == " ", NA, uniprotkb_canonical_ac)
+    )
 
 gly3 <- gly3 %>%
-  mutate(uniprotkb_canonical_ac = ifelse(uniprotkb_canonical_ac == "" | 
-                                           uniprotkb_canonical_ac == " ", NA, uniprotkb_canonical_ac))
+  mutate(
+    uniprotkb_canonical_ac = ifelse(uniprotkb_canonical_ac == "" | 
+                                           uniprotkb_canonical_ac == " ", NA, uniprotkb_canonical_ac)
+    )
 
 gly4 <- gly4 %>%
-  mutate(UniProt.ID = ifelse(UniProt.ID == "" | UniProt.ID== " ", NA, UniProt.ID))
+  mutate(
+    UniProt.ID = ifelse(UniProt.ID == "" | UniProt.ID== " ", NA, UniProt.ID)
+    )
 
 #checking for missing uniprotID
 sum(is.na(gly1$uniprotkb_canonical_ac)) #2583
@@ -115,25 +137,47 @@ gly4 <- gly4 %>%
   rename(uniprotkb_canonical_ac = UniProt.ID)
 
 #integrating gly 4 
-finalgly <- full_join(merge1, gly4, by = c("uniprotkb_canonical_ac", "saccharide")) 
+finalgly <- full_join(
+  merge1, gly4, by = c("uniprotkb_canonical_ac", "saccharide")
+  ) 
 
 #get rid of isoform symbol on the protein id column (-1)
 finalgly <- finalgly %>%
-mutate(uniprotkb_canonical_ac = gsub("-\\d+$", "", uniprotkb_canonical_ac))%>%
+  mutate(uniprotkb_canonical_ac = gsub("-\\d+$", "", uniprotkb_canonical_ac))%>%
   unique() %>%
   arrange(saccharide)
 
-# integrate gene names 
-#ANNOTATE GENE SYMBOL VIA UNIPROT_ID, delete gene symbol form gly4
+#ANNOTATE GENE SYMBOL VIA UNIPROT_ID
+#create gene list
+uniprot_gene <- na.omit(
+  unique(
+    AnnotationDbi::select(
+      org.Hs.eg.db, finalgly$uniprotkb_canonical_ac, "SYMBOL", "UNIPROT")
+    )
+  ) #symbol stands for gene name here
+
+#check for NA in uniprot
+length(unique(finalgly$uniprotkb_canonical_ac)) #6669 unique unirprotIDs
+
+#however the gene data have 6660 observations
+#9 UniprotIDs not found in the data
+
+#merging the data anws
+data_gly_final <- merge(
+  finalgly, uniprot_gene, by.x = "uniprotkb_canonical_ac", by.y = "UNIPROT", all = T
+  )
+
+sum(is.na(data_gly_final$SYMBOL)) #3439 without a gene name
+
 #Export the clean only glyco data
 
 saveRDS(
-  finalgly,
+  data_gly_final,
   file = "./data\\intermediate\\data_clean_gly.RDS"
 )
 
 write.csv(
-  finalgly,
+  data_gly_final,
   file = "./data\\intermediate\\data_clean_gly.csv",
   row.names = FALSE
 )
