@@ -93,6 +93,9 @@ gly1 <- gly1 %>%
 gly1$taxonomy_species <- as.factor(gly1$taxonomy_species)
 levels(gly1$taxonomy_species) #all homo sapiens
 
+#gly2 and 3 do not specify the species
+
+
 #keep all homo sapiens in taxonomy of gly 4
 gly4$Organism <- as.factor(gly4$Organism)
 gly4 <- gly4 %>%
@@ -138,7 +141,9 @@ finalgly <- full_join(
 finalgly <- finalgly %>%
   mutate(uniprotkb_canonical_ac = gsub("-\\d+$", "", uniprotkb_canonical_ac))%>%
   unique() %>%
-  arrange(saccharide)
+  arrange(saccharide) 
+
+#88799 observations
 
 #ANNOTATE GENE SYMBOL VIA UNIPROT_ID
 #create gene list
@@ -149,16 +154,35 @@ uniprot_gene <- na.omit(
     )
   )
 
-#check for NA in uniprot
-length(unique(finalgly$uniprotkb_canonical_ac)) #6669 unique unirprotIDs
+#Check whether all uniprot_IDs found in finalgly are also found in GO
 
-#however the gene data have 6660 observations
 #9 UniprotIDs not found in the data
+finalgly_uniprot <- unique(
+  finalgly$uniprotkb_canonical_ac
+  )
+uniprot_genes_unique <- unique(
+  uniprot_gene$UNIPROT
+  )
 
-#merging the data anws
+missing_uniprot <- setdiff(finalgly_uniprot, uniprot_genes_unique)%>%
+  print()
+
+#save results in document
+write.csv(
+  missing_uniprot, 
+  file="./data\\intermediate\\missing_uniprot.csv",
+  row.names = FALSE
+  )
+
+#merging the data
 data_gly_final <- merge(
   finalgly, uniprot_gene, by.x = "uniprotkb_canonical_ac", by.y = "UNIPROT", all = T
   )
+
+data_gly_final <- data_gly_final%>%
+  rename_with(~ "Gene_name", .cols = "SYMBOL")
+
+#Error: object 'SYMBOL' not found using rename for some reason
 
 sum(is.na(data_gly_final$SYMBOL)) #3439 without a gene name
 
@@ -195,16 +219,6 @@ enz <- enz %>%
 data_glyenz <- data_gly_final %>%
   left_join(enz, by = "saccharide")%>%
   unique()
-
-#alternative way 
-glyenz2 <- finalgly %>%
-  left_join(enz, by= "saccharide") %>%
-  group_by(saccharide, uniprotkb_canonical_ac, amino_acid, Gene.Symbol,
-           glycosylation_type, Protein.Name, structure_glytoucan_id)%>%
-  summarise(enzyme_ID = paste(unique(enzyme_ID), collapse = ","),
-            enzyme_type = paste(unique(enzyme_type), collapse = ","),
-            enz_gene = paste(unique(enz_gene), collapse = ","),
-            .groups = "drop")
 
 #Save glycan data
 saveRDS(
