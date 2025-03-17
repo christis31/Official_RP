@@ -220,6 +220,8 @@ data_glyenz <- data_gly_final %>%
   left_join(enz, by = "saccharide")%>%
   unique()
 
+#find the saccharides which are found in gly data but not the enzyme data
+#if this is the case, delete
 
 #Save glycanenz data
 saveRDS(
@@ -299,6 +301,7 @@ lect1<- lect1%>%
 lect1 <- lect1%>%
   unique()
 
+sum((lect1$UniProt.ID == "")) #delete the blanks in Lect1
 
 ####################################################
 #lect2
@@ -323,12 +326,23 @@ data_lectinfinal <- bind_rows(lect1, lect2)%>%
   rename_with(~ "saccharide", .cols = "GlyTouCan.ID")%>%
   unique()
 
-#Integrating genelist into data_lectinfinal
-data_lectinfinal <- merge(
-  data_lectinfinal, uniprot_gene, by.x = "LectinUniProt_ID", by.y = "UNIPROT", all = T
+
+length(unique(data_lectinfinal$LectinUniProt_ID)) #108 unique Lectin_UniProtID
+
+#creating lectin uniprot gene list
+uniprot_gene_lectin <- na.omit(
+  unique(
+    AnnotationDbi::select(
+      org.Hs.eg.db, data_lectinfinal$LectinUniProt_ID, "SYMBOL", "UNIPROT")
+  )
 )
 
-data_gly_final <- data_gly_final%>%
+#Integrating genelist into data_lectinfinal
+data_lectinfinal <- merge(
+  data_lectinfinal, uniprot_gene_lectin, by.x = "LectinUniProt_ID", by.y = "UNIPROT", all = T
+)
+
+data_lectinfinal <- data_lectinfinal%>%
   rename_with(~ "Lectin_Gene_name", .cols = "SYMBOL")
 
 length(is.na(data_lectinfinal$SYMBOL)) #all NA
@@ -353,8 +367,10 @@ write.csv(
 
 #need to annotate the lectin  uniprot to the genes using GO
 #need to check if every enzyme uniprot has the equivalent enzyme gene
+
 #should i delete rows which done have an equivalent enzyme in the data_glyenz_final
+
 #what to do if GO does not have all uniprotID in the dataset 
+#biomaRt another way to annotate genes
 
-
-
+#first UKB-PPP pQTL UniProt overlap with glycosylated proteins' UniProtID
