@@ -220,6 +220,7 @@ data_glyenz <- data_gly_final %>%
   left_join(enz, by = "saccharide")%>%
   unique()
 
+
 #Save glycanenz data
 saveRDS(
   data_glyenz,
@@ -339,3 +340,7 @@ write.csv(
   row.names = FALSE
 )
 
+#need to annotate the lectin  uniprot to the genes using GO
+#need to check if every enzyme uniprot has the equivalent enzyme gene
+#should i delete rows which done have an equivalent enzyme in the data_glyenz_final
+#what to do if GO does not have all uniprotID in the dataset 
