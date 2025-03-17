@@ -220,7 +220,7 @@ data_glyenz <- data_gly_final %>%
   left_join(enz, by = "saccharide")%>%
   unique()
 
-#Save glycan data
+#Save glycanenz data
 saveRDS(
   data_glyenz,
   file = "./data\\processed\\data_glyenz.RDS"
@@ -232,4 +232,110 @@ write.csv(
   row.names = FALSE
 )
 
-#################################################################################
+################################################################################
+#Combining the lectin data into glyco-data
+################################################################################
+
+#data input
+
+getwd()
+lect1 <- read.csv("./data\\raw\\glyco\\glycosmos_lectins_lfdb_list.csv")
+lect2 <- read.csv("./data\\raw\\glyco\\glycosmos_lectins_carbogrove_list.csv")
+
+#inspect overlap
+num_unique_glytoucan <- lect1 %>%
+  distinct(GlyTouCan.ID) %>%
+  nrow()
+
+print(num_unique_glytoucan)
+
+num_unique_glytoucan2 <- lect2 %>%
+  distinct(GlyTouCan.ID) %>%
+  nrow()
+
+all(lect1$GlyCosmos.Lectin.Number %in% lect2$GlyCosmos.Lectin.Number)
+#FALSE
+#meaning that lect1 has unique lectin IDs 
+setdiff(lect1$GlyCosmos.Lectin.Number, lect2$GlyCosmos.Lectin.Number)
+#29 unique lectin IDs
+
+#need to insert a UniProt column at lect1 based on the Lectin number
+#find all unique lectin numbers
+
+
+#list of all lectin numbers and their equivalent uniprot_ID
+llist <- read.csv("./data\\raw\\glyco\\glycosmos_lectins_list.csv")
+
+#make sure that every lectin_Id of lect1 is found in the list
+all(lect1$GlyCosmos.Lectin.Number %in% llist$GlyCosmos.Lectin.Number)
+#TRUE
+#Integrating the enzyme data
+
+#select only Lectin No and UniProtID from llist
+llist <- llist %>%
+  dplyr::select(GlyCosmos.Lectin.Number, UniProt.ID)
+
+#based on llist, create a new column with the equivalent UniProtID for every lectin 
+lect1 <- lect1 %>%
+  left_join(llist, by = "GlyCosmos.Lectin.Number")
+
+#checking that UniProtId is found in every row
+sum(is.na(lect1$UniProt.ID)) #0
+
+#I want to check if the same combination of GlyCosmos.Lectin.Number
+#and UniProt.ID appears multiple times in the dataset.
+duplicates <- lect1 %>%
+  group_by(GlyCosmos.Lectin.Number, GlyTouCan.ID) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  filter(count > 1) 
+print(duplicates)
+
+#select appropriate columns
+lect1<- lect1%>%
+  dplyr::select(GlyCosmos.Lectin.Number, GlyTouCan.ID, UniProt.ID)
+
+#delete duplicates
+lect1 <- lect1%>%
+  unique()
+
+
+####################################################
+#lect2
+
+#find duplicates in lect2 too
+duplicates2 <- lect2 %>%
+  group_by(GlyCosmos.Lectin.Number, GlyTouCan.ID) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  filter(count > 1) 
+print(duplicates2)
+
+#select appropriate columns
+lect2<- lect2%>%
+  dplyr::select(GlyCosmos.Lectin.Number, GlyTouCan.ID, UniProt.ID)
+
+#delete duplicates
+lect2 <- lect2%>%
+  unique()
+
+data_lectinfinal <- bind_rows(lect1, lect2)%>%
+  rename_with(~ "LectinUniProt_ID", .cols = "UniProt.ID")%>%
+  rename_with(~ "saccharide", .cols = "GlyTouCan.ID")%>%
+  unique()
+
+#Combining with data_gly_final
+data_glylect <- data_gly_final %>%
+  left_join(data_lectinfinal, by= "saccharide")
+
+
+#Save glycan-lectin data
+saveRDS(
+  data_glylect,
+  file = "./data\\processed\\data_glylect.RDS"
+)
+
+write.csv(
+  data_glylect,
+  file = "./data\\processed\\data_glylect.csv",
+  row.names = FALSE
+)
+
