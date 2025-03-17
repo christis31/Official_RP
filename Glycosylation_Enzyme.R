@@ -192,7 +192,7 @@ enz <- enz %>%
 #create new columns with enzyme id, gene of the enzyme and enzyme types which
 #should be aligned based on the sacchatide ID
 
-glyenz <- data_gly_final %>%
+data_glyenz <- data_gly_final %>%
   left_join(enz, by = "saccharide")%>%
   unique()
 
@@ -205,5 +205,17 @@ glyenz2 <- finalgly %>%
             enzyme_type = paste(unique(enzyme_type), collapse = ","),
             enz_gene = paste(unique(enz_gene), collapse = ","),
             .groups = "drop")
+
+#Save glycan data
+saveRDS(
+  data_glyenz,
+  file = "./data\\processed\\data_glyenz.RDS"
+)
+
+write.csv(
+  data_glyenz,
+  file = "./data\\processed\\data_glyenz.csv",
+  row.names = FALSE
+)
 
 #################################################################################
