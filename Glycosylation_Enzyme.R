@@ -285,11 +285,11 @@ sum(is.na(lect1$UniProt.ID)) #0
 
 #I want to check if the same combination of GlyCosmos.Lectin.Number
 #and UniProt.ID appears multiple times in the dataset.
-duplicates <- lect1 %>%
+duplicates1 <- lect1 %>%
   group_by(GlyCosmos.Lectin.Number, GlyTouCan.ID) %>%
   summarise(count = n(), .groups = "drop") %>%
   filter(count > 1) 
-print(duplicates)
+print(duplicates1)
 
 #select appropriate columns
 lect1<- lect1%>%
@@ -323,6 +323,17 @@ data_lectinfinal <- bind_rows(lect1, lect2)%>%
   rename_with(~ "saccharide", .cols = "GlyTouCan.ID")%>%
   unique()
 
+#Integrating genelist into data_lectinfinal
+data_lectinfinal <- merge(
+  data_lectinfinal, uniprot_gene, by.x = "LectinUniProt_ID", by.y = "UNIPROT", all = T
+)
+
+data_gly_final <- data_gly_final%>%
+  rename_with(~ "Lectin_Gene_name", .cols = "SYMBOL")
+
+length(is.na(data_lectinfinal$SYMBOL)) #all NA
+#wrong dataset for lectinuniprot and gene 
+
 #Combining with data_gly_final
 data_glylect <- data_gly_final %>%
   left_join(data_lectinfinal, by= "saccharide")
@@ -344,3 +355,6 @@ write.csv(
 #need to check if every enzyme uniprot has the equivalent enzyme gene
 #should i delete rows which done have an equivalent enzyme in the data_glyenz_final
 #what to do if GO does not have all uniprotID in the dataset 
+
+
+
