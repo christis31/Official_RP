@@ -4,11 +4,12 @@
 
 #Download appropriate libraries
 if("librarian" %in% installed.packages()==FALSE) install.packages("librarian")
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+BiocManager::install(version = "3.20")
 librarian::shelf(tidyverse, purrr, BiocManager, AnnotationDbi, 
                  qvalue, GO.db, org.Hs.eg.db, reshape2)
-if (!require("BiocManager", quietly = TRUE))
-install.packages("BiocManager")
-BiocManager::install(version = "3.20")
+
 
 #data input
 gly1 <- read.csv("./data\\raw\\glyco\\human_proteoform_glycosylation1.csv")
@@ -364,7 +365,15 @@ lect1<- lect1%>%
 lect1 <- lect1%>%
   unique()
 
-sum((lect1$UniProt.ID == "")) #delete the blanks in Lect1
+sum(lect1$UniProt.ID == "") #267
+sum(llist$UniProt.ID == "") #
+
+#delete the blanks in Lect1
+lect1 <- lect1 %>%
+  mutate(
+     = ifelse(uniprotkb_canonical_ac == "" | 
+                                      uniprotkb_canonical_ac == " ", NA, uniprotkb_canonical_ac)
+  )
 
 ####################################################
 #lect2
@@ -429,11 +438,6 @@ write.csv(
 )
 
 #need to annotate the lectin  uniprot to the genes using GO
-#need to check if every enzyme uniprot has the equivalent enzyme gene
-
-#should i delete rows which done have an equivalent enzyme in the data_glyenz_final
-
 #what to do if GO does not have all uniprotID in the dataset 
 #biomaRt another way to annotate genes
-
 #first UKB-PPP pQTL UniProt overlap with glycosylated proteins' UniProtID
