@@ -213,6 +213,16 @@ enz <- enz %>%
   dplyr::rename(saccharide = glytoucan_ac)%>%
   filter(species == "Homo sapiens")
 
+#find NA in the dataset
+enz <- enz %>%
+  mutate(
+    enzyme_uniprot_ID = ifelse(enzyme_uniprot_ID == "" | enzyme_uniprot_ID== " ", NA, enzyme_uniprot_ID)
+  ) %>%
+  mutate(
+    enz_gene = ifelse(enz_gene == ""| enz_gene == " ", NA, enz_gene))
+sum(is.na(enz$enzyme_uniprot_ID)) #0
+sum(is.na(enz$enz_gene)) #0
+
 #create new columns with enzyme id, gene of the enzyme and enzyme types which
 #should be aligned based on the sacchatide ID
 
@@ -223,7 +233,46 @@ data_glyenz <- data_gly_final %>%
 #find the saccharides which are found in gly data but not the enzyme data
 #if this is the case, delete
 
-#Save glycanenz data
+#explore NAs
+sum(is.na(data_glyenz$uniprotkb_canonical_ac)) #0
+sum(is.na(data_glyenz$enzyme_uniprot_ID)) #70053
+sum(is.na(data_glyenz$enz_gene)) #70053
+sum(is.na(data_glyenz$Gene_name)) #14901 - this is due to annotation problems
+
+#find the saccharides found in gly data but not enzyme data
+only_sacc_gly <- setdiff(data_gly_final$saccharide, enz$saccharide)
+
+length(only_sacc_gly) #1200 saccharides in gly data and not in the enzyme one
+
+#find the saccharides found in enz data but not gly data
+only_sacc_enz <- setdiff(enz$saccharide, data_gly_final$saccharide)
+
+length(only_sacc_enz) #27388
+
+#find whether all saccharides which have NA in their enzyme column of data_glyenz
+#are the same as the saccharides which are found in the gly data but not the enz data
+
+# Get all unique saccharide values where enzyme_uniprot_ID is NA
+na_saccharides <- unique(data_glyenz$saccharide[is.na(data_glyenz$enzyme_uniprot_ID)])
+
+# Check if all of them are in the only_in_gly set
+all_in_only_gly <- all(na_saccharides %in% only_sacc_gly)
+
+# Print result
+if (all_in_only_gly) {
+  cat("✅ All saccharides with NA enzyme_uniprot_ID are in the only_in_gly set.\n")
+} else {
+  cat("❌ Some saccharides with NA enzyme_uniprot_ID are NOT in the only_in_gly set.\n")
+  missing <- setdiff(na_saccharides, only_in_gly)
+  cat("Saccharides not in only_in_gly:\n")
+  print(missing)
+}
+
+#All saccharised with NA enzyme_uniprot_ID are the saccharides found in the gly data and not the 
+#so do i delete the rows with NA on their enzyme?
+
+
+#Save glycanenz data (with the NA)
 saveRDS(
   data_glyenz,
   file = "./data\\processed\\data_glyenz.RDS"
@@ -235,13 +284,27 @@ write.csv(
   row.names = FALSE
 )
 
+#delete rows which have NA on their enzyme 
+data_filt_glyenz <- data_glyenz %>%
+  filter(!is.na(enzyme_uniprot_ID))
+
+#save filtered without NA glyenz data
+saveRDS(
+  data_filt_glyenz,
+  file = "./data\\processed\\data_filt_glyenz.RDS"
+)
+
+write.csv(
+  data_filt_glyenz,
+  file = "./data\\processed\\data_filt_glyenz.csv",
+  row.names = FALSE
+)
+
 ################################################################################
 #Combining the lectin data into glyco-data
 ################################################################################
 
 #data input
-
-getwd()
 lect1 <- read.csv("./data\\raw\\glyco\\glycosmos_lectins_lfdb_list.csv")
 lect2 <- read.csv("./data\\raw\\glyco\\glycosmos_lectins_carbogrove_list.csv")
 
