@@ -8,7 +8,7 @@ if (!require("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
 BiocManager::install(version = "3.20")
 librarian::shelf(tidyverse, purrr, BiocManager, AnnotationDbi, 
-                 qvalue, GO.db, org.Hs.eg.db, reshape2)
+                 qvalue, GO.db, org.Hs.eg.db, reshape2, UniProt.ws, biomaRt)
 
 
 #data input
@@ -306,8 +306,12 @@ write.csv(
 ################################################################################
 
 #data input
-lect1 <- read.csv("./data\\raw\\glyco\\glycosmos_lectins_lfdb_list.csv")
-lect2 <- read.csv("./data\\raw\\glyco\\glycosmos_lectins_carbogrove_list.csv")
+lect1 <- read.csv("./data\\raw\\glyco\\glycosmos_lectins_lfdb_list.csv") #does not have UniprotID
+lect2 <- read.csv("./data\\raw\\glyco\\glycosmos_lectins_carbogrove_list.csv") #has UniProtID
+
+#filter only for homo sapiens in lect1
+lect1 <- lect1 %>%
+  filter(Organism == "Homo sapiens")
 
 #inspect overlap
 num_unique_glytoucan <- lect1 %>%
@@ -326,6 +330,14 @@ all(lect1$GlyCosmos.Lectin.Number %in% lect2$GlyCosmos.Lectin.Number)
 setdiff(lect1$GlyCosmos.Lectin.Number, lect2$GlyCosmos.Lectin.Number)
 #29 unique lectin IDs
 
+#does lect2 have blanks in the data?
+lect2 <- lect2 %>%
+  mutate(
+    UniProt.ID = ifelse(UniProt.ID== "" | UniProt.ID == " ", NA, UniProt.ID)
+  )
+
+sum(is.na(lect2$UniProt.ID)) #no missing data on lect2
+
 #need to insert a UniProt column at lect1 based on the Lectin number
 #find all unique lectin numbers
 
@@ -343,37 +355,44 @@ llist <- llist %>%
   dplyr::select(GlyCosmos.Lectin.Number, UniProt.ID)
 
 #based on llist, create a new column with the equivalent UniProtID for every lectin 
-lect1 <- lect1 %>%
+lect1uni <- lect1 %>%
   left_join(llist, by = "GlyCosmos.Lectin.Number")
-
-#checking that UniProtId is found in every row
-sum(is.na(lect1$UniProt.ID)) #0
 
 #I want to check if the same combination of GlyCosmos.Lectin.Number
 #and UniProt.ID appears multiple times in the dataset.
-duplicates1 <- lect1 %>%
+duplicates1 <- lect1uni %>%
   group_by(GlyCosmos.Lectin.Number, GlyTouCan.ID) %>%
   summarise(count = n(), .groups = "drop") %>%
   filter(count > 1) 
 print(duplicates1)
 
 #select appropriate columns
-lect1<- lect1%>%
+lect1uni<- lect1uni%>%
   dplyr::select(GlyCosmos.Lectin.Number, GlyTouCan.ID, UniProt.ID)
 
 #delete duplicates
-lect1 <- lect1%>%
+lect1uni <- lect1uni%>%
   unique()
 
-sum(lect1$UniProt.ID == "") #267
-sum(llist$UniProt.ID == "") #
-
-#delete the blanks in Lect1
-lect1 <- lect1 %>%
+#Convert blanks to NAs
+lect1uni <- lect1uni %>%
   mutate(
-     = ifelse(uniprotkb_canonical_ac == "" | 
-                                      uniprotkb_canonical_ac == " ", NA, uniprotkb_canonical_ac)
+  UniProt.ID = ifelse(UniProt.ID== "" | UniProt.ID == " ", NA, UniProt.ID)
   )
+
+sum(is.na(lect1uni)) #0
+
+#export lect1uni
+saveRDS(
+  lect1uni,
+  file = "./data\\intermediate\\lect1uni.RDS"
+)
+
+write.csv(
+  lect1uni,
+  file = "./data\\intermediate\\lect1uni.csv",
+  row.names = FALSE
+)
 
 ####################################################
 #lect2
@@ -393,14 +412,17 @@ lect2<- lect2%>%
 lect2 <- lect2%>%
   unique()
 
-data_lectinfinal <- bind_rows(lect1, lect2)%>%
+#combine the two datasets
+data_lectinfinal <- bind_rows(lect1uni, lect2)%>%
   rename_with(~ "LectinUniProt_ID", .cols = "UniProt.ID")%>%
   rename_with(~ "saccharide", .cols = "GlyTouCan.ID")%>%
   unique()
 
 
-length(unique(data_lectinfinal$LectinUniProt_ID)) #108 unique Lectin_UniProtID
+length(unique(data_lectinfinal$LectinUniProt_ID)) #82 unique Lectin_UniProtID
 
+##############################################################################
+#Need to insert a lectin gene column based on the lectinuniprot_ID to find the genes of
 #creating lectin uniprot gene list
 uniprot_gene_lectin <- na.omit(
   unique(
@@ -409,6 +431,7 @@ uniprot_gene_lectin <- na.omit(
   )
 )
 
+org.Hs.eg()
 #Integrating genelist into data_lectinfinal
 data_lectinfinal <- merge(
   data_lectinfinal, uniprot_gene_lectin, by.x = "LectinUniProt_ID", by.y = "UNIPROT", all = T
@@ -417,8 +440,21 @@ data_lectinfinal <- merge(
 data_lectinfinal <- data_lectinfinal%>%
   rename_with(~ "Lectin_Gene_name", .cols = "SYMBOL")
 
-length(is.na(data_lectinfinal$SYMBOL)) #all NA
-#wrong dataset for lectinuniprot and gene 
+sum(is.na(data_lectinfinal$SYMBOL)) #38041/41953 are NA
+
+###############################################################################
+#second try using biomRt
+
+#extract uniprotID from GO ontology
+ref_uniprot <- UniProt.ws(taxId = 9606)
+
+#extarct uniprotID from lectindataset
+lectin_uniprot <- unique(data_lectinfinal$LectinUniProt_ID)
+
+mapped_genes <- select(ref_uniprot, 
+                       keys = lectin_uniprot,
+                       columns = c("UniProtKB", "GENES"),
+                       keytype = "UniProtKB")
 
 #Combining with data_gly_final
 data_glylect <- data_gly_final %>%
