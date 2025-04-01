@@ -527,18 +527,26 @@ data_lectinfinal <- data_lectinfinal%>%
 sum(is.na(data_lectinfinal$SYMBOL)) #38041/41953 are NA
 
 ###############################################################################
-#second try using biomRt
+#second try using biomaRt
 
-#extract uniprotID from GO ontology
-ref_uniprot <- UniProt.ws(taxId = 9606)
-
-#extarct uniprotID from lectindataset
 lectin_uniprot <- unique(data_lectinfinal$LectinUniProt_ID)
 
-mapped_genes <- select(ref_uniprot, 
-                       keys = lectin_uniprot,
-                       columns = c("UniProtKB", "GENES"),
-                       keytype = "UniProtKB")
+#extracting gene, gene description and uniprot from ensembl
+gene_ensembl_lectin <- getBM(attributes = c("uniprotswissprot", "hgnc_symbol",
+                                     "description"),
+                      filters = "uniprotswissprot", 
+                      values= lectin_uniprot ,  mart= ensembl)
+
+
+data_lectin_update <- data_lectinfinal %>%
+  left_join(gene_ensembl_lectin %>% 
+              dplyr::select(uniprotswissprot, hgnc_symbol), 
+            by = c("LectinUniProt_ID" = "uniprotswissprot")) %>%
+  mutate(Lectin_Gene_name = if_else(is.na(Lectin_Gene_name), hgnc_symbol, Lectin_Gene_name)) %>%
+  dplyr::select(-hgnc_symbol)%>%
+  unique() 
+
+#biomart did not help at all
 
 #Combining with data_gly_final
 data_glylect <- data_gly_final %>%
@@ -560,3 +568,7 @@ write.csv(
 #need to annotate the lectin  uniprot to the genes using GO and biomart
 #biomaRt another way to annotate genes DONE
 #first UKB-PPP pQTL UniProt overlap with glycosylated proteins' UniProtID
+
+#gly biomart 53 now missing from 84 using biomart, manual or delete?
+#enzyme delete double check
+#lectin gene annotation?
