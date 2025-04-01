@@ -185,7 +185,12 @@ data_gly_final <- data_gly_final%>%
 
 #Error: object 'SYMBOL' not found using rename for some reason
 
-sum(is.na(data_gly_final$SYMBOL)) #3439 without a gene name
+sum(is.na(data_gly_final$Gene_name)) #3439 without a gene name
+
+data_gly_final %>%
+  filter(is.na(Gene_name)) %>%
+  distinct(uniprotkb_canonical_ac) %>%
+  nrow() #86 distinct uniprot ids with no gene
 
 #Export the clean only glyco data
 
@@ -203,20 +208,84 @@ write.csv(
 #######################################################################################
 #trying with the biomaRt
 
-ensembl <- useMart("ensembl", dataset= "hsapiens_gene_ensembl")
+ensembl <- useMart("ensembl", dataset= "hsapiens_gene_ensembl") #didnt specify which version of the dataset
 
 gly_uniprot_ids <- unique(finalgly$uniprotkb_canonical_ac)
 
 #extracting gene, gene description and uniprot from ensembl
 gene_ensembl <- getBM(attributes = c("uniprotswissprot", "hgnc_symbol",
                                      "description"),
-                      filters = "uniprotswissprot",
-                      values = gly)
+                      filters = "uniprotswissprot", 
+                      values= gly_uniprot_ids,  mart= ensembl)
 
+#combine gene list to finalgly based on uniprotID
 
+data_clean_gly_2 <- finalgly %>%
+  left_join(gene_ensembl, by = c("uniprotkb_canonical_ac" = "uniprotswissprot"))
 
+#how many uniprot_IDs do not have a gene name
 
+sum(is.na(data_clean_gly_2$hgnc_symbol)) #897 without a gene name 
 
+data_clean_gly_2 %>%
+  filter(is.na(hgnc_symbol)) %>%
+  distinct(uniprotkb_canonical_ac) %>%
+  nrow() #100 how is that even possible
+
+#create a dataset with the uniprot whicha are not found in biomaRt.
+uniprot_biomart <- unique(
+  gene_ensembl$uniprotswissprot
+)
+
+missing_uniprot_biomart <- setdiff(finalgly_uniprot, uniprot_biomart)
+
+#extract the missing data from biomart
+write.csv(
+  missing_uniprot_biomart, 
+  file="./data\\intermediate\\missing_uniprot_biomart.csv",
+  row.names = FALSE
+)
+
+################################################################################
+#Let's combine the two datasets to minimise NAs
+
+data_gly_update <- data_gly_final %>%
+  left_join(gene_ensembl %>% 
+              dplyr::select(uniprotswissprot, hgnc_symbol), 
+            by = c("uniprotkb_canonical_ac" = "uniprotswissprot")) %>%
+  mutate(Gene_name = if_else(is.na(Gene_name), hgnc_symbol, Gene_name)) %>%
+  dplyr::select(-hgnc_symbol)%>%
+  unique() #why do i need this ahhh
+
+#how many NA in the gene column now?
+sum(is.na(data_gly_update$Gene_name)) #524 observations
+
+missing_biomart_go <- data_gly_update %>%
+  filter(is.na(Gene_name)) %>%
+  distinct(uniprotkb_canonical_ac)
+#54 distinct unirprotIDs
+
+#extact both missing values and new dataset
+write.csv(
+  missing_biomart_go, 
+  file="./data\\intermediate\\missing_biomart_go.csv",
+  row.names = FALSE
+)
+
+write.csv(
+  data_gly_update, 
+  file="./data\\processed\\data_gly_biomart_go.csv",
+  row.names = FALSE
+)
+
+saveRDS(
+  data_gly_update,
+  file = "./data\\processed\\data_gly_biomart_go.RDS"
+)
+#################################################################################
+
+#however this gets rid of the description column, which could be useful,
+#since the 100 unknwon genes dont have one, is that okay?
 
 #Integrating the enzyme data
 
@@ -243,7 +312,7 @@ sum(is.na(enz$enz_gene)) #0
 #create new columns with enzyme id, gene of the enzyme and enzyme types which
 #should be aligned based on the sacchatide ID
 
-data_glyenz <- data_gly_final %>%
+data_glyenz <- data_gly_update %>%
   left_join(enz, by = "saccharide")%>%
   unique()
 
@@ -254,15 +323,14 @@ data_glyenz <- data_gly_final %>%
 sum(is.na(data_glyenz$uniprotkb_canonical_ac)) #0
 sum(is.na(data_glyenz$enzyme_uniprot_ID)) #70053
 sum(is.na(data_glyenz$enz_gene)) #70053
-sum(is.na(data_glyenz$Gene_name)) #14901 - this is due to annotation problems
 
 #find the saccharides found in gly data but not enzyme data
-only_sacc_gly <- setdiff(data_gly_final$saccharide, enz$saccharide)
+only_sacc_gly <- setdiff(data_gly_update$saccharide, enz$saccharide)
 
 length(only_sacc_gly) #1200 saccharides in gly data and not in the enzyme one
 
 #find the saccharides found in enz data but not gly data
-only_sacc_enz <- setdiff(enz$saccharide, data_gly_final$saccharide)
+only_sacc_enz <- setdiff(enz$saccharide, data_gly_update$saccharide)
 
 length(only_sacc_enz) #27388
 
@@ -489,7 +557,6 @@ write.csv(
   row.names = FALSE
 )
 
-#need to annotate the lectin  uniprot to the genes using GO
-#what to do if GO does not have all uniprotID in the dataset 
-#biomaRt another way to annotate genes
+#need to annotate the lectin  uniprot to the genes using GO and biomart
+#biomaRt another way to annotate genes DONE
 #first UKB-PPP pQTL UniProt overlap with glycosylated proteins' UniProtID
