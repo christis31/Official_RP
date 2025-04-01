@@ -201,6 +201,22 @@ write.csv(
 )
 
 #######################################################################################
+#trying with the biomaRt
+
+ensembl <- useMart("ensembl", dataset= "hsapiens_gene_ensembl")
+
+gly_uniprot_ids <- unique(finalgly$uniprotkb_canonical_ac)
+
+#extracting gene, gene description and uniprot from ensembl
+gene_ensembl <- getBM(attributes = c("uniprotswissprot", "hgnc_symbol",
+                                     "description"),
+                      filters = "uniprotswissprot",
+                      values = gly)
+
+
+
+
+
 
 #Integrating the enzyme data
 
