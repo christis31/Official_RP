@@ -101,3 +101,6 @@ write.csv(
   row.names = FALSE
 )
 
+#taking the bioinformatics annotate gene form UKB-PPP and then overlap with enxzyme and lectin genes
+
+#after that taking the lectin data sent on 1/4 and checking for overlap, after that we ca manually look ath the glycpsylation rpogress
