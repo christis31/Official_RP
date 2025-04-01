@@ -18,8 +18,20 @@ sum(pqtl$cis.trans == "-") #0 all observations are classified as cis or trans
 trans <- pqtl %>%
   filter(cis.trans == "trans") #12332 trans-pqtls, 86.31% of observations are trans
 
+transpqtl_ids <- unique(trans$Target.UniProt)
+length(transpqtl_ids) #2177 transpqtl targeted proteins
+
 cis <- pqtl %>%
-  filter(cis.trans == "cis") #1955 cis-pqtls, 13.79% 
+  filter(cis.trans == "cis") #1955 cis-pqtls, 13.79%
+
+cispqtl_ids <- unique(cis$Target.UniProt)
+length(cispqtl_ids) #1953 targeted proteins in cis
+
+#overlap between cis and trans targeted proteins
+length(intersect(cispqtl_ids, transpqtl_ids)) #1715 proteins
+
+#462 unique in trans taget proteins
+#238 unique in cis target proteins
 
 #check overlap of the glycosylated proteins in the gly data with glycosylated proteins in cis, trans and all (Target.UniProt)
 
@@ -54,10 +66,6 @@ write.csv(
 )
 
 #trans
-
-transpqtl_ids <- unique(trans$Target.UniProt)
-length(transpqtl_ids) #2177 transpqtl targeted proteins
-
 common_trans_ids <-intersect(transpqtl_ids, glyco_ids)
 length(common_trans_ids) #1230
 
@@ -76,11 +84,8 @@ write.csv(
 )
 
 #cis
-cispqtl_ids <- unique(cis$Target.UniProt)
-length(cispqtl_ids) #1953 targeted proteins in cis
-
 common_cis_ids <- intersect(cispqtl_ids, glyco_ids)
-length(common_cis_ids) #1103
+length(common_cis_ids) #1103 overlap
 
 data_common_cis_uniprot <- data.frame(Common_cis_UniProt_IDs = common_cis_ids)
 
