@@ -398,8 +398,6 @@ lect2 <- read.csv("./data\\raw\\glyco\\glycosmos_lectins_carbogrove_list.csv") #
 lect1 <- lect1 %>%
   filter(Organism == "Homo sapiens")
 
-length(unique(lect1$)
-
 #inspect overlap
 num_unique_glytoucan <- lect1 %>%
   distinct(GlyTouCan.ID) %>%
