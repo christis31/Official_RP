@@ -383,6 +383,9 @@ write.csv(
   row.names = FALSE
 )
 
+#nice figure to find e.g. 100 0 proteins with a glycosylation, 
+#x% have a known enzyme 
+
 ################################################################################
 #Combining the lectin data into glyco-data
 ################################################################################
@@ -394,6 +397,8 @@ lect2 <- read.csv("./data\\raw\\glyco\\glycosmos_lectins_carbogrove_list.csv") #
 #filter only for homo sapiens in lect1
 lect1 <- lect1 %>%
   filter(Organism == "Homo sapiens")
+
+length(unique(lect1$)
 
 #inspect overlap
 num_unique_glytoucan <- lect1 %>%
@@ -435,6 +440,13 @@ all(lect1$GlyCosmos.Lectin.Number %in% llist$GlyCosmos.Lectin.Number)
 #select only Lectin No and UniProtID from llist
 llist <- llist %>%
   dplyr::select(GlyCosmos.Lectin.Number, UniProt.ID)
+
+llisthuman <- llist %>%
+  dplyr::filter(Organism == "Homo sapiens")
+
+length(unique(llisthuman$UniProt.ID)) #298 lectin IDs 
+
+colnames(llist)
 
 #based on llist, create a new column with the equivalent UniProtID for every lectin 
 lect1uni <- lect1 %>%
@@ -479,6 +491,11 @@ write.csv(
 ####################################################
 #lect2
 
+head(lect2)
+lect2 <- lect2 %>%
+  dplyr::select()
+
+
 #find duplicates in lect2 too
 duplicates2 <- lect2 %>%
   group_by(GlyCosmos.Lectin.Number, GlyTouCan.ID) %>%
@@ -502,7 +519,9 @@ data_lectinfinal <- bind_rows(lect1uni, lect2)%>%
 
 
 length(unique(data_lectinfinal$LectinUniProt_ID)) #82 unique Lectin_UniProtID
+length(unique(data_lectin_update$GlyCosmos.Lectin.Number)) #82 Lectin Glycosmos Numebrs
 
+unique(data_lectinfinal$LectinUniProt_ID)
 ##############################################################################
 #Need to insert a lectin gene column based on the lectinuniprot_ID to find the genes of
 #creating lectin uniprot gene list
@@ -524,6 +543,9 @@ data_lectinfinal <- data_lectinfinal%>%
 
 sum(is.na(data_lectinfinal$SYMBOL)) #38041/41953 are NA
 
+missing_lectin <- setdiff(data_lectin_update$LectinUniProt_ID, uniprot_gene_lectin$UNIPROT)
+
+print(missing_lectin)
 ###############################################################################
 #second try using biomaRt
 
@@ -570,3 +592,9 @@ write.csv(
 #gly biomart 53 now missing from 84 using biomart, manual or delete?
 #enzyme delete double check
 #lectin gene annotation?
+
+#ideally manual, but may be skipped 
+#pseudogenes, skipped
+
+
+#need to filter lect2 also into only showing homo sapiens
