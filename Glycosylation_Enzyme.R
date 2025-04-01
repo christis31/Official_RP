@@ -549,7 +549,7 @@ data_lectin_update <- data_lectinfinal %>%
 #biomart did not help at all
 
 #Combining with data_gly_final
-data_glylect <- data_gly_final %>%
+data_glylect <- data_gly_update %>%
   left_join(data_lectinfinal, by= "saccharide")
 
 
