@@ -183,8 +183,6 @@ data_gly_final <- merge(
 data_gly_final <- data_gly_final%>%
   rename_with(~ "Gene_name", .cols = "SYMBOL")
 
-#Error: object 'SYMBOL' not found using rename for some reason
-
 sum(is.na(data_gly_final$Gene_name)) #3439 without a gene name
 
 data_gly_final %>%
