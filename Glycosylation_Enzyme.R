@@ -594,5 +594,4 @@ write.csv(
 #ideally manual, but may be skipped 
 #pseudogenes, skipped
 
-
-#need to filter lect2 also into only showing homo sapiens
+#cant do anything regarding lectin data, only 15 hits
