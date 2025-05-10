@@ -1,0 +1,208 @@
+---
+title: "Colocalisation"
+author: "Christis Nicolaides"
+date: "2025-05-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+```{r}
+#Install packages
+if("librarian" %in% installed.packages()==FALSE) install.packages("librarian")
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+BiocManager::install(version = "3.20")
+librarian::shelf(tidyverse, purrr, BiocManager, AnnotationDbi, 
+                 qvalue, GO.db, org.Hs.eg.db, reshape2, UniProt.ws, biomaRt)
+```
+
+
+Download CAD-associated variants from Aragam et al., 2022 and UKB-PPP
+
+```{r}
+cad <- as.data.frame(read.csv(".\\data\\raw\\CAD_GWAS.csv"))
+pqtl <- as.data.frame(read.csv(".\\data\\raw\\pQTL_discovery.csv"))
+
+#filter the data to include only trans-pqtls OR cis/pqtls
+trans <- pqtl %>%
+  filter(cis.trans == "trans") #12332 trans-pqtls, 86.31% of observations are trans
+
+cis <- pqtl %>%
+  filter(cis.trans == "cis") #1955 cis-pqtls, 13.79%
+```
+
+Check for overlap between genes associated with CAD and Bioinformatics.annotated genes where pQTLs coulld be located
+
+```{r}
+
+#all pqtls
+pqtl_gene <- unique(pqtl$Bioinfomatic.annotated.gene)
+length(pqtl_gene) #3763 genes involved in affecting plasma proteins
+
+#cis
+cis_gene <- unique(cis$Bioinfomatic.annotated.gene)
+length(cis_gene) #1698 genes involved in affecting plasma proteins in cus
+
+#trans
+trans_gene <- unique(trans$Bioinfomatic.annotated.gene)
+length(trans_gene) #2434 genes involved in affecting plasma proteins in trans
+
+cad_genes <- unique(cad$Nearest_gene)
+length(cad_genes) #216 genes 
+
+#overlap between trans and cis genes
+length(intersect(cis_gene, trans_gene)) #369 genes dispaly variants which affect proteins in both cis and trans
+length(intersect(cad_genes, pqtl_gene)) #79 genes who are found to be associated with CAD where also associated with pqtls
+
+length(intersect(cad_genes, cis_gene)) #26 in cis
+length(intersect(cad_genes, trans_gene)) #70 in trans
+```
+Display a table showing the overlap between pqtls and CAD variant genes and whether they act in cis or trans
+```{r}
+#make a table
+common_pqtl_cad <- intersect(cad_genes, pqtl_gene)
+common_trans_cad <- intersect(cad_genes, trans_gene)
+common_cis_cad <- intersect(cad_genes, cis_gene)
+cis_cad_overlap <- common_pqtl_cad %in% common_cis_cad
+trans_cad_overlap <- common_pqtl_cad  %in% common_trans_cad
+
+#Labelling
+regulation_cad_type <- ifelse(cis_cad_overlap & trans_cad_overlap, "Both",
+                          ifelse(cis_cad_overlap, "Cis",
+                                 ifelse(trans_cad_overlap, "Trans", "None")))
+
+overlap_cad_pqtl_table <- data.frame(
+  Gene =  intersect(cad_genes, pqtl_gene),
+  regulation_cad_type
+)
+
+print(overlap_cad_pqtl_table)
+```
+
+Check overlap with enzyme an lectin genes too 
+```{r}
+#enzymes
+#Load data
+data_filt_glyenz <- read.csv("./data\\processed\\data_filt_glyenz.csv")
+
+#Select enzyme gene
+enzgenes <- unique (data_filt_glyenz$enz_gene)
+length(enzgenes) #103 unique enzgyme genes involved in glycosylation
+
+####
+#Should i do and for any enzyme gene?
+##
+
+#overlap with cad
+common_glyenz_cad_genes <- intersect(cad_genes, enzgenes)
+length(common_glyenz_cad_genes) #2 genes, ABO and ST3GAL4
+
+overlap_cad_enz_table <- data.frame(
+  Gene = common_glyenz_cad_genes 
+)
+
+print(overlap_cad_enz_table)
+
+#lectins
+#load data
+all_lectins <- read_tsv("./data\\raw\\glyco\\human_lectins.tsv")
+
+#extract lectin genes
+all_lectin_genes <- unique(all_lectins$`HGNC gene name`)
+length(all_lectin_genes) #214 genes 
+
+#overlap with cad
+common_cad_lectin_genes <- intersect(cad_genes, all_lectin_genes)
+length(common_cad_lectin_genes) #1 gene ANGPTL4
+
+
+overlap_cad_lectin_table <- data.frame(
+  Gene = common_cad_lectin_genes
+)
+
+print(overlap_cad_lectin_table)
+```
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+#are any of the proteins that have pQTLs also glycosylated proteins
+
+#load glycosylation data
+glyco <- read.csv(".\\data\\processed\\data_gly_biomart_go.csv")
+
+#checking whether overlapping olink protein targets in glycosylation and pqtl data are enzymes or lectins
+
+#load overlapping protein uniprotID data
+data_common_all_uniprot <- read.csv("./data\\processed\\data_common_all_uniprot.csv")
+data_gly_final <- read.csv
+data_filt_glyenz <- read.csv("./data\\processed\\data_filt_glyenz.csv")
+data_glylect <- read.csv("./data\\processed\\data_glylect.csv")
+
+#checking overlap with enzyme uniprotID
+overlap_enzyme_glycoprot_pqtl <- intersect(data_common_all_uniprot, data_filt_glyenz$enzyme_uniprot_ID)
+length(overlap_enzyme_glycoprot_pqtl) #no overlap
+
+#lectin
+overlap_lectin_glycoprot_pqtl <- intersect(data_common_all_uniprot, data_glylect$LectinUniProt_ID)
+length(overlap_lectin_glycoprot_pqtl) #no overlap
+
+#check whether GLYCOSYLATED proteins are lectins or enzymes
+
+#transpqtl and glycosylation overlaps
+
+
+#overlap of protein in glycosylation 
+
+```
+Look whether glycosylated proteins with trans-pQTL  have glycosylation signal
+
+```{r}
+#targeted proteins and targeteed protein in glycosyaltion
+#extarct targeted proteins in glycosylation enzyme data
+target_prot_glyenz <- data_filt_glyenz$uniprotkb_canonical_ac
+
+overlap_targetenz_glycoprot_pqtl <- intersect(pqtl$Target.UniProt, target_prot_glyenz)
+length(overlap_targetenz_glycoprot_pqtl) #921 observations
+
+
+
+"./data\\processed\\data_common_trans_uniprot.csv"
+
+"./data\\processed\\data_common_cis_uniprot.csv"
+
+target_prot_glylect <- data_glylect$uniprotkb_canonical_ac
+
+overlap_targetlect_glycoprot_pqtl <- intersect(pqtl$Target.UniProt, target_prot_glylect)
+length(overlap_targetlect_glycoprot_pqtl) #1329 observations
+
+
+
+head(target_prot_glyenz)
+length(target_prot_glyenz)
+
+#troubleshoot
+#length(intersect(overlap_targetenz_glycoprot_pqtl, glyco$uniprotkb_canonical_ac)
+```
+
