@@ -595,3 +595,17 @@ write.csv(
 #pseudogenes, skipped
 
 #cant do anything regarding lectin data, only 15 hits
+
+#also save the glycosylated only final dataset
+saveRDS(
+  data_gly_final,
+  file = "./data\\processed\\data_gly_final.RDS"
+)
+
+write.csv(
+  data_gly_final,
+  file = "./data\\processed\\data_gly_final.csv",
+  row.names = FALSE
+)
+
+
