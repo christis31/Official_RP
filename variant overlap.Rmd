@@ -1,0 +1,132 @@
+---
+title: "CAD38pqtl"
+author: "Christis Nicolaides"
+date: "2025-05-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+if("librarian" %in% installed.packages()==FALSE) install.packages("librarian")
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+BiocManager::install(version = "3.20")
+librarian::shelf(tidyverse, purrr, BiocManager, AnnotationDbi, 
+                 qvalue, GO.db, org.Hs.eg.db, reshape2, UniProt.ws, biomaRt, GenomicRanges)
+```
+```{r}
+#Load data
+cad_bed <- read.table(".\\data\\raw\\hglft_genome_45a60_6dfd60.bed", header = FALSE, stringsAsFactors = FALSE)
+colnames(cad_bed) <- c("chr", "start", "end", "variant_id")
+
+pqtl <- as.data.frame(read.csv(".\\data\\raw\\pQTL_discovery.csv"))
+
+```
+
+CAD and pqtl variants as Genomic ranges 
+```{r}
+cad_gr <- GRanges(
+  seqnames = paste0(cad_bed$chr),
+  ranges = IRanges(start = cad_bed$start + 1,
+                   end= cad_bed$end),
+  variant_id= cad_bed$variant_id
+)
+
+#pQTL variants +/- 1Mb
+pqtl_gr <- GRanges (
+  seqnames= paste0("chr", pqtl$CHROM),
+  ranges = IRanges(start = pqtl$GENPOS..hg38. - 1e6,  # 1Mb upstream
+                   end = pqtl$GENPOS..hg38. + 1e6),   # 1Mb downstream
+  variant_id = pqtl$Variant.ID..CHROM.GENPOS..hg37..A0.A1.imp.v1.  # Variant ID metadata , should i use the rs? USE MARKERNAME INSTEAD 
+)
+```
+
+Check for overlapping regions
+```{r}
+overlap_cad_pqtl_variants <- findOverlaps(cad_gr, pqtl_gr)
+
+#summarise the pairs
+data_overlap_cad_pqtl<- data.frame(
+  cad_variant = cad_gr[queryHits(overlap_cad_pqtl_variants)]$variant_id,
+  pqtl_variant = pqtl_gr[subjectHits(overlap_cad_pqtl_variants)]$variant_id
+)
+
+head(data_overlap_cad_pqtl)
+length(data_annotated_overlap_cad_pqtl$pqtl_variant) #5391 pairs
+
+#check how many wiht 500k
+```
+
+export results
+```{r}
+saveRDS(
+  data_overlap_cad_pqtl,
+  file = "./data\\processed\\data_overlap_cad_pqtl.RDS"
+)
+
+write.csv(
+  data_overlap_cad_pqtl,
+  file = "./data\\processed\\data_overlap_cad_pqtl.csv",
+  row.names = FALSE
+)
+```
+
+map your variants to the nearest gene located (Bioinformatics.annotated gene) and affected protein and the gene fo that proteib (Assay.Target and Target.UniProt) 
+```{r}
+#rename first column of pqtl
+colnames(pqtl)[1] <- "pqtl_variant"
+
+#create new annotated dataset
+pqtl_annotation <- pqtl %>%
+  dplyr::select(pqtl_variant,
+         Assay.Target,
+         Target.UniProt,
+         Bioinfomatic.annotated.gene)
+
+#create columns
+data_annotated_overlap_cad_pqtl <- merge(data_overlap_cad_pqtl,
+                                         pqtl_annotation,
+                                         by = "pqtl_variant",
+                                         all.x = TRUE)
+
+#export
+saveRDS(
+  data_annotated_overlap_cad_pqtl,
+  file = "./data\\processed\\data_annotated_overlap_cad_pqtl.RDS"
+)
+
+write.csv(
+  data_annotated_overlap_cad_pqtl,
+  file = "./data\\processed\\data_annotated_overlap_cad_pqtl.csv",
+  row.names = FALSE
+)
+
+#pairs became ~80K why?
+#SHOULD I DO THIS USING BIOMART, GO instead of this way?
+
+                                        
+```
+
