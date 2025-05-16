@@ -203,6 +203,10 @@ write.csv(
   row.names = FALSE
 )
 
+#how many proteins are targeted in glycosylation 
+num_gly_targets <- length(unique(data_gly_final$uniprotkb_canonical_ac))
+
+
 #######################################################################################
 #trying with the biomaRt
 
@@ -385,6 +389,39 @@ write.csv(
 
 #nice figure to find e.g. 100 0 proteins with a glycosylation, 
 #x% have a known enzyme 
+
+#num of target proteins with a known enzyme 
+num_enz_gly_target <- length(unique(data_filt_glyenz$uniprotkb_canonical_ac))
+
+#Figure
+
+#genetating the data
+data_num_targets_enz_gly <- data.frame(
+  Category = rep("Glycosylation in Humans", 2),
+  Count = c(num_enz_gly_target, num_gly_targets - num_enz_gly_target),
+  Type = factor(c("With Known Enzyme", "Without Known Enzyme"),
+  levels = c("With Known Enzyme", "Without Known Enzyme"))
+)
+
+
+#geenrating bar chart
+ggplot(data_num_targets_enz_gly, aes(x = Category, y = Count, fill = Type)) +
+  geom_bar(stat = "identity", color = "black") +
+  scale_fill_manual(values = c("gray50", "white")) +
+  scale_y_continuous(breaks = seq(0, ceiling(num_gly_targets / 1000) * 1000, by = 1000)) +
+  theme_minimal(base_family = "sans") +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.y = element_line(color = "black", size = 0.3),
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(color = "black"),
+    axis.line = element_line(color = "black"),
+    legend.title = element_blank(),
+    legend.text = element_text(color = "black")
+  ) +
+  ylab("Number of Proteins") +
+  xlab("")
 
 ################################################################################
 #Combining the lectin data into glyco-data
