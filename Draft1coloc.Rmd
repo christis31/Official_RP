@@ -62,7 +62,7 @@ length(pqtl_gene) #3763 genes involved in affecting plasma proteins
 
 #cis
 cis_gene <- unique(cis$Bioinfomatic.annotated.gene)
-length(cis_gene) #1698 genes involved in affecting plasma proteins in cus
+length(cis_gene) #1698 genes involved in affecting plasma proteins in cis
 
 #trans
 trans_gene <- unique(trans$Bioinfomatic.annotated.gene)
@@ -186,7 +186,14 @@ target_prot_glyenz <- data_filt_glyenz$uniprotkb_canonical_ac
 overlap_targetenz_glycoprot_pqtl <- intersect(pqtl$Target.UniProt, target_prot_glyenz)
 length(overlap_targetenz_glycoprot_pqtl) #921 observations
 
+#how many are cis 
+#cis
+overlap_targetenz_glycoprot_cis <- intersect(cis$Target.UniProt, target_prot_glyenz)
+length(overlap_targetenz_glycoprot_cis) #726 observations
 
+#trans
+overlap_targetenz_glycoprot_trans <- intersect(trans$Target.UniProt, target_prot_glyenz)
+length(overlap_targetenz_glycoprot_trans) #849 observations
 
 "./data\\processed\\data_common_trans_uniprot.csv"
 
@@ -197,12 +204,118 @@ target_prot_glylect <- data_glylect$uniprotkb_canonical_ac
 overlap_targetlect_glycoprot_pqtl <- intersect(pqtl$Target.UniProt, target_prot_glylect)
 length(overlap_targetlect_glycoprot_pqtl) #1329 observations
 
+#how many are cis 
+overlap_targetlect_glycoprot_cis <- intersect(cis$Target.UniProt, target_prot_glylect)
+length(overlap_targetlect_glycoprot_cis) #1103 observations
 
+#trans
+overlap_targetlect_glycoprot_trans <- intersect(trans$Target.UniProt, target_prot_glylect)
+length(overlap_targetlect_glycoprot_trans) #1230 observations
 
 head(target_prot_glyenz)
 length(target_prot_glyenz)
 
-#troubleshoot
-#length(intersect(overlap_targetenz_glycoprot_pqtl, glyco$uniprotkb_canonical_ac)
+#troubleshoot ???
+
+#graph it 
+# Derived values based on overlap estimation
+total_observations <- 921
+cis_only <- 72
+trans_only <- 195
+both_cis_trans <- 654
+
+# Prepare data for stacked single bar
+data_overlap_estimated <- data.frame(
+  Category = "Glycosylated Proteins with known Enzymes and pQTL Variants",
+  Count = c(cis_only, trans_only, both_cis_trans),
+  Type = factor(c("Only cis", "Only trans", "Both cis and trans"),
+                levels = c("Only cis", "Only trans", "Both cis and trans"))
+)
+
+# Plot stacked bar
+ggplot(data_overlap_estimated, aes(x = Category, y = Count, fill = Type)) +
+  geom_bar(stat = "identity", color = "black") +
+  scale_fill_manual(values = c("white", "gray80", "gray50")) +
+  scale_y_continuous(breaks = seq(0, ceiling(total_observations / 100) * 100, by = 100)) +
+  theme_minimal(base_family = "sans") +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.y = element_line(color = "black", size = 0.3),
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(color = "black"),
+    axis.line = element_line(color = "black"),
+    legend.title = element_blank(),
+    legend.text = element_text(color = "black")
+  ) +
+  ylab("Number of Proteins") +
+  xlab("")
+
+
+#integrate with CAD variants
+```
+
+Analyse gene findings  ABO, ST3GAL4 (enzyme) and ANGPTL4 (lectin)
+```{r}
+#Reminder 
+#ABO, ST3GAL4 are results from intersect(cad_genes, enzgenes)
+
+#ANGPTL4 is a result when comparing lectin geens and CAD genes
+
+#search for these in the pQTL data
+
+#ABO
+#identify targeted proteins 
+
+abo_enz <- data_filt_glyenz %>%
+  filter(enz_gene == "ABO")
+abo_target <- unique(abo_enz$uniprotkb_canonical_ac) #isolate the different protein targets
+
+view(abo_target) #8 TARGETS
+
+#identify those targets inside the pQTL data
+pqtl_abo_targets <- pqtl %>%
+  filter(Target.UniProt %in% abo_target)
+#31 hits
+
+#identify the gene itself in the pqtl data
+pqtl_abo_gene <- pqtl %>%
+  filter(Bioinfomatic.annotated.gene == "ABO") #341 hits
+
+
+#ST3GAL4
+ST3GAL4_enz <- data_filt_glyenz %>%
+  filter(enz_gene == "ST3GAL4")
+ST3GAL4_target <- unique(ST3GAL4_enz$uniprotkb_canonical_ac) #isolate the different protein targets
+
+view(ST3GAL4_target) #50 targets
+
+#identify those targets inside the pQTL data
+pqtl_ST3GAL4_targets <- pqtl %>%
+  filter(Target.UniProt %in% ST3GAL4_target)
+#371 hits
+
+#identify the gene itself in the pqtl data
+pqtl_ST3GAL4_gene <- pqtl %>%
+  filter(Bioinfomatic.annotated.gene == "ST3GAL4")
+#105 hits
+
+
+#ANGPTL4 lectin 
+ANGPTL4_lectin <- all_lectins %>%
+  filter(`HGNC gene name`== "ANGPTL4")
+ANGPTL4_target <- unique(ANGPTL4_lectin$uniprotkb_canonical_ac) #isolate the different protein targets
+
+view(ST3GAL4_target) #50 targets
+
+#identify those targets inside the pQTL data
+pqtl_ST3GAL4_targets <- pqtl %>%
+  filter(Target.UniProt %in% ST3GAL4_target)
+#371 hits
+
+#identify the gene itself in the pqtl data
+pqtl_ST3GAL4_gene <- pqtl %>%
+  filter(Bioinfomatic.annotated.gene == "ST3GAL4")
+#105 hits
 ```
 
