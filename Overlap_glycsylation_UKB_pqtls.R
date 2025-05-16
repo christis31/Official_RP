@@ -20,7 +20,8 @@ librarian::shelf(tidyverse, purrr, BiocManager, AnnotationDbi,
 pqtl <- as.data.frame(read.csv(".\\data\\raw\\pQTL_discovery.csv"))
 
 pqtl$cis.trans <- as.factor(pqtl$cis.trans)
-sum(pqtl$cis.trans == "-") #0 all observations are classified as cis or trans
+sum(pqtl$cis.trans == "-") #0, all observations are classified as cis or trans
+num_pqtl_targets <- length(unique(pqtl$Target.UniProt))
 
 #filter the data to include only trans-pqtls
 trans <- pqtl %>%
@@ -37,9 +38,45 @@ length(cispqtl_target) #1953 targeted proteins in cis
 
 #overlap between cis and trans targeted proteins
 length(intersect(cispqtl_ids, transpqtl_ids)) #1715 proteins
+       
 
 #462 unique in trans taget proteins
 #238 unique in cis target proteins
+
+#Figure making
+num_only_cis_targets <- 238
+num_only_trans_targets <- 462
+num_trans_cis_targets <- 1715
+if (num_only_cis_targets + num_only_trans_targets + num_trans_cis_targets != num_pqtl_targets) {
+  warning("Warning: Provided numbers do not sum to total number of pQTL targets.")
+}
+
+# Data frame
+data <- data.frame(
+  Category = rep("pQTL-affected Proteins (UKB-PPP)", 3),
+  Count = c(num_only_cis_targets, num_only_trans_targets, num_trans_cis_targets),
+  Type = factor(c("Only cis", "Only trans", "Both cis and trans"),
+                levels = c("Only cis", "Only trans", "Both cis and trans")) # Bottom to top stacking order
+)
+
+# Plot
+ggplot(data, aes(x = Category, y = Count, fill = Type)) +
+  geom_bar(stat = "identity", color = "black") +
+  scale_fill_manual(values = c("white", "gray80", "gray50")) +
+  scale_y_continuous(breaks = seq(0, ceiling(num_pqtl_targets / 1000) * 1000, by = 1000)) +
+  theme_minimal(base_family = "sans") +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.y = element_line(color = "black", size = 0.3),
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(color = "black"),
+    axis.line = element_line(color = "black"),
+    legend.title = element_blank(),
+    legend.text = element_text(color = "black")
+  ) +
+  ylab("Number of Proteins") +
+  xlab("")
 
 #check overlap of the glycosylated proteins in the gly data with glycosylated proteins in cis, trans and all (Target.UniProt)
 
@@ -60,6 +97,8 @@ common_ids <- intersect(pqtl_target, glyco_ids)
 length(common_ids) #1329 of targeted proteins in pqtl are also found in the glycosylated data
 
 data_common_all_uniprot <- data.frame(Common_UniProt_IDs = common_ids)
+
+data_common_all_uniprot <- intersect(pqtl$Target.UniProt, glyco$uniprotkb_canonical_ac)
 
 #Save overlapped uniprot data
 saveRDS(
@@ -109,6 +148,39 @@ write.csv(
   row.names = FALSE
 )
 
+data_combined <- data.frame(
+  Category = rep(c("Glycosylation (Enzyme Known/Unknown)", 
+                   "Glycosylation (pQTL Affected/Not)"), each = 2),
+  Count = c(num_enz_gly_target, num_gly_targets - num_enz_gly_target,
+            length(data_common_all_uniprot), num_gly_targets - length(data_common_all_uniprot)),
+  Type = factor(c("Glycosylation: With Known Enzyme", 
+                  "Glycosylation: Without Known Enzyme",
+                  "pQTL Overlay: Also pQTL-Affected", 
+                  "pQTL Overlay: Not pQTL-Affected"),
+                levels = c("Glycosylation: With Known Enzyme", 
+                           "Glycosylation: Without Known Enzyme",
+                           "pQTL Overlay: Also pQTL-Affected", 
+                           "pQTL Overlay: Not pQTL-Affected"))
+)
+
+# Plot the two bars with clarified legend and x-axis labels
+ggplot(data_combined, aes(x = Category, y = Count, fill = Type)) +
+  geom_bar(stat = "identity", color = "black") +
+  scale_fill_manual(values = c("gray50", "white", "gray50", "white")) +
+  scale_y_continuous(breaks = seq(0, ceiling(num_gly_targets / 1000) * 1000, by = 1000)) +
+  theme_minimal(base_family = "sans") +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.y = element_line(color = "black", size = 0.3),
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(color = "black"),
+    axis.line = element_line(color = "black"),
+    legend.title = element_blank(),
+    legend.text = element_text(color = "black")
+  ) +
+  ylab("Number of Proteins") +
+  xlab("")
 #taking the bioinformatics annotate gene form UKB-PPP and then overlap with enxzyme and lectin genes
 #after that taking the lectin data sent on 1/4 and checking for overlap, after that we ca manually look at the glycpsylation rpogress
 
@@ -129,6 +201,41 @@ length(trans_gene) #2434 genes involved in affecting plasma proteins in trans
 
 #overlap between trans and cis genes
 length(intersect(cis_gene, trans_gene)) #369 genes dispaly variants which affect proteins in both cis and trans
+
+
+#create a figure
+# Derived numbers
+total_genes <- 3763
+unique_cis_only <- 1329
+unique_trans_only <- 2065
+cis_and_trans <- 369
+
+# Prepare data frame
+gene_overlap_data <- data.frame(
+  Category = "UKB-PPP Genes with pQTL Variants",
+  Count = c(unique_cis_only, unique_trans_only, cis_and_trans),
+  Type = factor(c("Only cis", "Only trans", "Both cis and trans"),
+                levels = c("Only cis", "Only trans", "Both cis and trans"))
+)
+
+# Generate the plot
+ggplot(gene_overlap_data, aes(x = Category, y = Count, fill = Type)) +
+  geom_bar(stat = "identity", color = "black") +
+  scale_fill_manual(values = c("white", "gray80", "gray50")) +
+  scale_y_continuous(breaks = seq(0, ceiling(total_genes / 500) * 500, by = 500)) +
+  theme_minimal(base_family = "sans") +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.y = element_line(color = "black", size = 0.3),
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(color = "black"),
+    axis.line = element_line(color = "black"),
+    legend.title = element_blank(),
+    legend.text = element_text(color = "black")
+  ) +
+  ylab("Number of Genes") +
+  xlab("")
 
 #ENZYME
 #Load data
