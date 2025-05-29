@@ -39,8 +39,8 @@ librarian::shelf(tidyverse, purrr, BiocManager, AnnotationDbi,
 ```
 ```{r}
 #Load data
-cad_bed <- read.table(".\\data\\raw\\hglft_genome_45a60_6dfd60.bed", header = FALSE, stringsAsFactors = FALSE)
-colnames(cad_bed) <- c("chr", "start", "end", "variant_id")
+cad_bed <- read.table(".\\data\\raw\\hglft_genome_31753d_markername.bed", header = FALSE, stringsAsFactors = FALSE)
+colnames(cad_bed) <- c("chr", "start", "end", "markername")
 
 pqtl <- as.data.frame(read.csv(".\\data\\raw\\pQTL_discovery.csv"))
 
@@ -50,45 +50,94 @@ CAD and pqtl variants as Genomic ranges
 ```{r}
 cad_gr <- GRanges(
   seqnames = paste0(cad_bed$chr),
-  ranges = IRanges(start = cad_bed$start + 1,
+  ranges = IRanges(start = cad_bed$start,
                    end= cad_bed$end),
-  variant_id= cad_bed$variant_id
+  variant_id= cad_bed$markername
 )
 
 #pQTL variants +/- 1Mb
-pqtl_gr <- GRanges (
+pqtl_gr_1mill <- GRanges (
   seqnames= paste0("chr", pqtl$CHROM),
   ranges = IRanges(start = pqtl$GENPOS..hg38. - 1e6,  # 1Mb upstream
                    end = pqtl$GENPOS..hg38. + 1e6),   # 1Mb downstream
-  variant_id = pqtl$Variant.ID..CHROM.GENPOS..hg37..A0.A1.imp.v1.  # Variant ID metadata , should i use the rs? USE MARKERNAME INSTEAD 
+  variant_id = pqtl$Variant.ID..CHROM.GENPOS..hg37..A0.A1.imp.v1.  # Variant ID metadata
 )
+
+#pqtL variants +/- 500kb
+pqtl_gr_500k <- GRanges (
+  seqnames= paste0("chr", pqtl$CHROM),
+  ranges = IRanges(start = pqtl$GENPOS..hg38. - 500e3,  # 1Mb upstream
+                   end = pqtl$GENPOS..hg38. + 500e3),   # 1Mb downstream
+  variant_id = pqtl$Variant.ID..CHROM.GENPOS..hg37..A0.A1.imp.v1.  # Variant ID metadata
+)
+
+#PQTL variants +/- 5k
+pqtl_gr_5k <- GRanges (
+  seqnames= paste0("chr", pqtl$CHROM),
+  ranges = IRanges(start = pqtl$GENPOS..hg38. - 5e3,  # 1Mb upstream
+                   end = pqtl$GENPOS..hg38. + 5e3),   # 1Mb downstream
+  variant_id = pqtl$Variant.ID..CHROM.GENPOS..hg37..A0.A1.imp.v1.  # Variant ID metadata
+)
+
 ```
 
 Check for overlapping regions
 ```{r}
-overlap_cad_pqtl_variants <- findOverlaps(cad_gr, pqtl_gr)
+overlap_cad_pqtl_variants_1mill <- findOverlaps(cad_gr, pqtl_gr_1mill)
+
+?findOverlaps
 
 #summarise the pairs
-data_overlap_cad_pqtl<- data.frame(
-  cad_variant = cad_gr[queryHits(overlap_cad_pqtl_variants)]$variant_id,
-  pqtl_variant = pqtl_gr[subjectHits(overlap_cad_pqtl_variants)]$variant_id
+data_overlap_cad_pqtl_1mill <- data.frame(
+  cad_variant = cad_gr[queryHits(overlap_cad_pqtl_variants_1mill)]$variant_id,
+  pqtl_variant = pqtl_gr_1mill[subjectHits(overlap_cad_pqtl_variants_1mill)]$variant_id
 )
 
-head(data_overlap_cad_pqtl)
-length(data_annotated_overlap_cad_pqtl$pqtl_variant) #5391 pairs
+head(data_overlap_cad_pqtl_1mill)
+length(data_annotated_overlap_cad_pqtl$pqtl_variant_1mill) #5391 pairs
+
+length(pqtl_gr_1mill)
+length(overlap_cad_pqtl_variants_1mill)
+
+head(subjectHits(overlap_cad_pqtl_variants_1mill))
+head(queryHits(overlap_cad_pqtl_variants_1mill))
+
 
 #check how many wiht 500k
+
+overlap_cad_pqtl_variants_500 <- findOverlaps(cad_gr, pqtl_gr_500k)
+
+#summarise the pairs
+data_overlap_cad_pqtl_500k<- data.frame(
+  cad_variant = cad_gr[queryHits(overlap_cad_pqtl_variants_500k)]$variant_id,
+  pqtl_variant = pqtl_gr_500k[subjectHits(overlap_cad_pqtl_variants_500k)]$variant_id
+)
+
+head(data_overlap_cad_pqtl_500k)
+length(data_annotated_overlap_cad_pqtl$pqtl_variant_500k)
+
+#check with 5k 
+overlap_cad_pqtl_variants_5k <- findOverlaps(cad_gr, pqtl_gr_1mill)
+
+#summarise the pairs
+data_overlap_cad_pqtl_5k<- data.frame(
+  cad_variant = cad_gr[queryHits(overlap_cad_pqtl_variants_5k)]$variant_id,
+  pqtl_variant = pqtl_gr_5k[subjectHits(overlap_cad_pqtl_variants_5k)]$variant_id
+)
+
+head(data_overlap_cad_pqtl_5k)
+length(data_annotated_overlap_cad_pqtl$pqtl_variant_5k)
 ```
 
 export results
 ```{r}
 saveRDS(
-  data_overlap_cad_pqtl,
+  data_overlap_cad_pqtl_1mill,
   file = "./data\\processed\\data_overlap_cad_pqtl.RDS"
 )
 
 write.csv(
-  data_overlap_cad_pqtl,
+  data_overlap_cad_pqtl_1mill,
   file = "./data\\processed\\data_overlap_cad_pqtl.csv",
   row.names = FALSE
 )
