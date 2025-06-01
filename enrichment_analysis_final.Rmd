@@ -1,0 +1,323 @@
+---
+title: "Enrichment_final"
+author: "Christis Nicolaides"
+date: "2025-06-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Download packages
+```{r}
+if("librarian" %in% installed.packages()==FALSE) install.packages("librarian")
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+BiocManager::install(version = "3.20")
+librarian::shelf(tidyverse, purrr, BiocManager, AnnotationDbi, 
+                 qvalue, GO.db, org.Hs.eg.db, reshape2, UniProt.ws, biomaRt, GenomicRanges, ggrepel, ggdark, ggplot2, clusterProfiler, stringr, scales)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+#Upload the pQTL result data
+pqtl <- as.data.frame(read.csv(".\\data\\raw\\pQTL_discovery.csv"))
+pqtl$cis.trans <- as.factor(pqtl$cis.trans)
+
+trans <- pqtl %>%
+  filter(cis.trans == "trans")
+
+#geen set where pqtls are located in 
+trans_genes <- unique (trans$Bioinfomatic.annotated.gene)
+
+#human genome
+all_genes <- read.table(".\\data\\raw\\ALL_gene_names_hgnc.txt", header = TRUE, sep = "\t", stringsAsFactors = FALSE)
+
+all_human_genes <- all_genes$Approved.symbol
+
+```
+
+```{r}
+prots_go <- na.omit(unique(AnnotationDbi::select(org.Hs.eg.db, all_human_genes, "GO", "SYMBOL")))
+
+index.all = which(AnnotationDbi::select(GO.db, prots_go$GO, "ONTOLOGY", "GOID")[,2] == "MF")
+all.ids.for.mf = unique(AnnotationDbi::select(GO.db, prots_go$GO, "TERM", "GOID")[index.all,])
+go_mf_named = unique(merge(prots_go, all.ids.for.mf, by.x = "GO", by.y = "GOID", all.x = F))
+
+go_mf_named_transqtls <- go_mf_named[which(go_mf_named$SYMBOL %in% trans_genes),]
+
+unique.go.bps = unique(go_mf_named$GO)
+
+bp.genes = list()
+for(i in 1:length(unique.go.bps)){
+  bp.genes[[i]] = unique(go_mf_named[which(go_mf_named$GO == unique.go.bps[i]), "SYMBOL"])
+}
+
+real.names = NULL
+for(i in 1:length(unique.go.bps)){
+  if(length(go_mf_named[which(go_mf_named$GO == unique.go.bps[i]), "TERM"]) > 0){
+    real.names[i] = unique(go_mf_named[which(go_mf_named$GO == unique.go.bps[i]), "TERM"])
+  }else{
+    real.names[i] =unique.go.bps[i]
+  }
+}
+
+names(bp.genes) = real.names
+
+filt.bp.genes_v1 = bp.genes[which(unlist(lapply(bp.genes, length)) > 19)]
+```
+
+Fisher's exact test
+```{r}
+bkg <- all_human_genes
+paths <- filt.bp.genes_v1
+sig <- trans_genes
+
+
+
+MatVals <- function(pathno, reggenes) {
+  OnPath = intersect(bkg, paths[[pathno]])
+ NotOnPath = setdiff(bkg, paths[[pathno]])
+  Regulated = reggenes
+ NotRegulated = setdiff(bkg, reggenes)
+  vals <- c(length(intersect(OnPath,Regulated)),
+            length(intersect(OnPath,NotRegulated)),
+            length(intersect(NotOnPath,Regulated)),
+            length(intersect(NotOnPath,NotRegulated)))
+  return(vals)
+}
+
+#Run Fisher's exact test on every path
+Results <- lapply(1: length(names(paths)), function (x) {
+  v <- MatVals(x, sig)
+  PathMat <- matrix(v, nrow =2,
+                    dimnames = list(Regulated =c("Yes", "No"),
+                                                 OnPath = c("Yes", "No")))
+    fisher.test(PathMat, alternative ="greater")$p.value
+})
+hist(unlist(Results))
+
+qval <- qvalue(unlist(Results))
+qval$pi0
+
+
+path_enrich <- data.frame(path = names(filt.bp.genes_v1), p = unlist(Results), padj = p.adjust(unlist(Results), method = "fdr"))
+
+qs <- qvalue(path_enrich$p)
+
+path_enrich$q <- qs$qvalues
+
+path_enrich$neg_log_p <- -log10(path_enrich$p)
+
+#fold enrichment
+
+enrichment_factor_calc <- function(kinase){
+  subs <- paths[[which(names(paths) == kinase)]]
+  enrichment_factor <- (length(intersect(subs, sig))/length(unique(sig)))/(length(intersect(subs, bkg))/length(unique(bkg)))
+  return(enrichment_factor)
+} 
+
+path_enrich$enrichment_factor <- sapply(names(paths), enrichment_factor_calc)
+path_enrich$log2_enrichment_factor <- log2(path_enrich$enrichment_factor)
+path_enrich$log2_enrichment_factor[-Inf] <- NA
+
+```
+
+plotting fold enrichment vs -log10
+```{r}
+ggplot(path_enrich, aes(x = log2_enrichment_factor, y = neg_log_p, label = path)) +
+  geom_point(colour = "skyblue") +
+  geom_text_repel(data = path_enrich[which(path_enrich$p < 0.05),], size = 3) +
+  geom_hline(yintercept  = -log10(0.05)) +
+  theme_minimal() +
+  dark_mode()+
+  theme(panel.grid = element_blank(),
+        axis.ticks = element_line(),
+        axis.text = element_text(colour = "white"),
+        axis.line = element_line()) +
+  labs(x = "Enrichment factor (Log2)", y = "p-value (-log10)")
+
+
+
+path_enrich_filt <- path_enrich[-which(path_enrich$path == "protein binding"),]
+ggplot(path_enrich_filt, aes(x = log2_enrichment_factor, y = neg_log_p, label = path)) +
+  geom_point(colour = "skyblue") +
+  geom_text_repel(data = path_enrich_filt[which(path_enrich_filt$p < 0.05),], size = 3, max.overlaps = 20) +
+  geom_hline(yintercept  = -log10(0.05)) +
+  theme_minimal() +
+  dark_mode()+
+  theme(panel.grid = element_blank(),
+        axis.ticks = element_line(),
+        axis.text = element_text(colour = "white"),
+        axis.line = element_line()) +
+  labs(x = "Enrichment factor (Log2)", y = "p-value (-log10)")
+```
+bar pltos
+```{r}
+path_enrich_sig <- path_enrich[which(path_enrich$q < 0.05),]
+path_enrich_sig$path <- factor(path_enrich_sig$path, levels = path_enrich_sig[order(path_enrich_sig$enrichment_factor), "path"])
+ggplot(path_enrich_sig, aes(x = enrichment_factor, y = path)) +
+  geom_bar(stat = "identity", fill = "skyblue", width = 0.5) +
+  theme_minimal() +
+  dark_mode() +
+  theme(panel.grid = element_blank(),
+        axis.ticks = element_line(),
+        axis.text = element_text(colour = "white"),
+        axis.line = element_line()) +
+  scale_x_continuous(position = "top") +
+  labs(x = "Enrichment Factor", y = "")
+
+path_enrich_sig <- path_enrich[which(path_enrich$p < 0.05),]
+path_enrich_sig$path <- factor(path_enrich_sig$path, levels = path_enrich_sig[order(path_enrich_sig$enrichment_factor), "path"])
+ggplot(path_enrich_sig, aes(x = enrichment_factor, y = path)) +
+  geom_bar(stat = "identity", fill = "skyblue", width = 0.5) +
+  theme_minimal() +
+  dark_mode() +
+  theme(panel.grid = element_blank(),
+        axis.ticks = element_line(),
+        axis.text = element_text(colour = "white"),
+        axis.line = element_line()) +
+  scale_x_continuous(position = "top") +
+  labs(x = "Enrichment Factor", y = "")
+```
+
+```{r}
+transql_genes_in_paths <- lapply(filt.bp.genes_v1, function(x){
+  intersect(x, trans_genes)
+})
+
+transql_genes_in_paths$`coreceptor activity`
+transql_genes_in_paths$`phospholipid binding`
+transql_genes_in_paths$`ligand-gated ion channel activity`
+transql_genes_in_paths$'protein kinase activity'
+
+of_interest <- c(transql_genes_in_paths$`signaling receptor activity`,
+                 transql_genes_in_paths$`ligand-gated ion channel activity`,
+                 transql_genes_in_paths$'protein kinase activity',
+                 transql_genes_in_paths$`GTPase activator activity`)
+
+#find which snps they belong to
+qtls <- readRDS("int_files/12_c_PHOS_EURO_potential_vep_transqtl_info.rds")
+
+filt <-qtls[which(qtls$V6 %in% of_interest),]
+View(filt)
+```
+#chatpgt way
+```{r}
+trans_entrez <- mapIds(org.Hs.eg.db, keys = trans_genes, keytype = "SYMBOL", column = "ENTREZID")
+reference_entrez <- mapIds(org.Hs.eg.db, keys = all_human_genes, keytype = "SYMBOL", column = "ENTREZID")
+
+trans_entrez <- na.omit(trans_entrez)
+reference_entrez <- na.omit(reference_entrez)
+
+
+
+```
+
+#fidhers exact test overrepresentation analysis
+
+```{r}
+ora_result <- enrichGO(
+  gene          = trans_entrez,
+  universe      = reference_entrez,
+  OrgDb         = org.Hs.eg.db,
+  ont           = "MF",
+  pAdjustMethod = "BH",
+  qvalueCutoff  = 0.05,
+  readable      = TRUE
+)
+
+# View results
+head(ora_result)
+```
+
+#plot similar to nature paper
+```{r}
+GO_result <- as.data.frame(ora_result)
+
+GO_plot <- GO_result %>%
+  filter(p.adjust < 0.05) %>%
+  arrange(desc(Count)) %>%
+  slice(1:20) %>%  # show only top 20
+  mutate(
+    Description = str_wrap(Description, width = 40),  # wrap long text
+    Description = factor(Description, levels = rev(Description))  # keep order
+  )
+
+ggplot(GO_plot, aes(x = Description, y = Count)) +
+  geom_bar(stat = "identity", fill = "steelblue", width = 0.7) +
+  geom_text(aes(label = Count), hjust = 1.1, color = "black", size = 4) +  # label inside the bar
+  coord_flip() +
+  labs(title = "Top GO Molecular Function: Trans-pQTL genes") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    axis.title = element_blank(),
+    axis.text.y = element_text(size = 11),
+    axis.text.x = element_blank(),
+    axis.ticks = element_blank(),
+    panel.grid = element_blank()
+  )
+
+```
+Statistical difference plot 
+```{r}
+# Prepare data
+GO_result$pval <- GO_result$p.adjust
+
+GO_plot <- GO_result %>%
+  filter(pval < 0.05) %>%
+  arrange(pval) %>%
+  slice(1:15) %>%
+  mutate(
+    Description = str_wrap(Description, width = 40),
+    Description = factor(Description, levels = rev(Description))
+  )
+
+# Plot
+ggplot(GO_plot, aes(x = 1, y = pval)) +
+  geom_point(aes(color = pval), size = 3) +
+  scale_y_log10(
+    trans = "log10",
+    breaks = c(1e-1, 1e-2, 1e-3, 1e-4),
+    labels = trans_format("log10", math_format(10^.x))
+  ) +
+  scale_color_gradient(low = "white", high = "red") +
+  geom_text(aes(label = Description), hjust = -0.1, size = 3.2) +
+  labs(
+    x = NULL,
+    y = expression(paste(italic("p.adjust (log scale)"))),
+    title = "Trans-pQTL genes, enrichment"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.y = element_text(size = 10),
+    legend.position = "none"
+  ) +
+  coord_cartesian(xlim = c(0.9, 2)) 
+```
+
