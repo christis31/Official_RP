@@ -34,7 +34,7 @@ if (!require("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
 BiocManager::install(version = "3.20")
 librarian::shelf(tidyverse, purrr, BiocManager, AnnotationDbi, 
-                 qvalue, GO.db, org.Hs.eg.db, reshape2, UniProt.ws, biomaRt, GenomicRanges, ggrepel, ggdark, ggplot2, clusterProfiler, stringr, scales)
+                 qvalue, GO.db, org.Hs.eg.db, reshape2, UniProt.ws, biomaRt, GenomicRanges, ggrepel, ggdark, ggplot2, clusterProfiler, stringr, scales, KSEAapp)
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
@@ -174,7 +174,9 @@ ggplot(path_enrich_filt, aes(x = log2_enrichment_factor, y = neg_log_p, label = 
 ```
 bar pltos
 ```{r}
-path_enrich_sig <- path_enrich[which(path_enrich$q < 0.05),]
+path_enrich_sig <- path_enrich[which(path_enrich$q < 0.05),] %>%
+  arrange(desc(enrichment_factor)) %>% 
+  slice(1:15)
 path_enrich_sig$path <- factor(path_enrich_sig$path, levels = path_enrich_sig[order(path_enrich_sig$enrichment_factor), "path"])
 ggplot(path_enrich_sig, aes(x = enrichment_factor, y = path)) +
   geom_bar(stat = "identity", fill = "skyblue", width = 0.5) +
@@ -187,7 +189,9 @@ ggplot(path_enrich_sig, aes(x = enrichment_factor, y = path)) +
   scale_x_continuous(position = "top") +
   labs(x = "Enrichment Factor", y = "")
 
-path_enrich_sig <- path_enrich[which(path_enrich$p < 0.05),]
+path_enrich_sig <- path_enrich[which(path_enrich$p < 0.05),]%>%
+  arrange(desc(enrichment_factor)) %>% 
+  slice(1:15)
 path_enrich_sig$path <- factor(path_enrich_sig$path, levels = path_enrich_sig[order(path_enrich_sig$enrichment_factor), "path"])
 ggplot(path_enrich_sig, aes(x = enrichment_factor, y = path)) +
   geom_bar(stat = "identity", fill = "skyblue", width = 0.5) +
@@ -256,17 +260,16 @@ head(ora_result)
 GO_result <- as.data.frame(ora_result)
 
 GO_plot <- GO_result %>%
-  filter(p.adjust < 0.05) %>%
   arrange(desc(Count)) %>%
-  slice(1:20) %>%  # show only top 20
+  slice(1:15) %>%  
   mutate(
-    Description = str_wrap(Description, width = 40),  # wrap long text
-    Description = factor(Description, levels = rev(Description))  # keep order
+    Description = str_wrap(Description, width = 40),  
+    Description = factor(Description, levels = rev(Description)) 
   )
 
 ggplot(GO_plot, aes(x = Description, y = Count)) +
   geom_bar(stat = "identity", fill = "steelblue", width = 0.7) +
-  geom_text(aes(label = Count), hjust = 1.1, color = "black", size = 4) +  # label inside the bar
+  geom_text(aes(label = Count), hjust = 1.1, color = "black", size = 4) +
   coord_flip() +
   labs(title = "Top GO Molecular Function: Trans-pQTL genes") +
   theme_minimal() +
@@ -278,6 +281,24 @@ ggplot(GO_plot, aes(x = Description, y = Count)) +
     axis.ticks = element_blank(),
     panel.grid = element_blank()
   )
+
+ggplot(GO_plot, aes(x = Count, y = Description, fill = p.adjust)) +
+ geom_col() +
+ scale_fill_gradient(
+ low = "firebrick",
+ high = "steelblue",
+ name = "Adj. P-value"
+ ) +
+ labs(
+ title = "Top 10 GO Molecular Function Terms - transpQTL",
+ x = "Count",
+ y = NULL
+ ) +
+ theme_minimal(base_size = 14) +
+ theme(
+ legend.position = "right",
+ axis.text.y = element_text(hjust = 1)
+ )
 
 ```
 Statistical difference plot 
@@ -295,5 +316,10 @@ GO_plot <- GO_result %>%
   )
 
 
+```
+ksea package - directional enrichment
+```{r}
+psp_path <- system.file("extdata", "PSP_human.csv", package = "KSEAapp")
+PSP_human <- read.csv(psp_path, stringsAsFactors = FALSE)
 ```
 
