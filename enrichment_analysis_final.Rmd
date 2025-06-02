@@ -282,7 +282,7 @@ ggplot(GO_plot, aes(x = Description, y = Count)) +
 ```
 Statistical difference plot 
 ```{r}
-# Prepare data
+# Prepare data, how to do significance figure
 GO_result$pval <- GO_result$p.adjust
 
 GO_plot <- GO_result %>%
@@ -294,30 +294,6 @@ GO_plot <- GO_result %>%
     Description = factor(Description, levels = rev(Description))
   )
 
-# Plot
-ggplot(GO_plot, aes(x = 1, y = pval)) +
-  geom_point(aes(color = pval), size = 3) +
-  scale_y_log10(
-    trans = "log10",
-    breaks = c(1e-1, 1e-2, 1e-3, 1e-4),
-    labels = trans_format("log10", math_format(10^.x))
-  ) +
-  scale_color_gradient(low = "white", high = "red") +
-  geom_text(aes(label = Description), hjust = -0.1, size = 3.2) +
-  labs(
-    x = NULL,
-    y = expression(paste(italic("p.adjust (log scale)"))),
-    title = "Trans-pQTL genes, enrichment"
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
-    axis.text.x = element_blank(),
-    axis.ticks.x = element_blank(),
-    axis.title.x = element_blank(),
-    axis.text.y = element_text(size = 10),
-    legend.position = "none"
-  ) +
-  coord_cartesian(xlim = c(0.9, 2)) 
+
 ```
 
