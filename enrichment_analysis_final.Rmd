@@ -87,122 +87,8 @@ names(bp.genes) = real.names
 filt.bp.genes_v1 = bp.genes[which(unlist(lapply(bp.genes, length)) > 19)]
 ```
 
-Fisher's exact test
 ```{r}
-bkg <- all_human_genes
-paths <- filt.bp.genes_v1
-sig <- trans_genes
 
-
-
-MatVals <- function(pathno, reggenes) {
-  OnPath = intersect(bkg, paths[[pathno]])
- NotOnPath = setdiff(bkg, paths[[pathno]])
-  Regulated = reggenes
- NotRegulated = setdiff(bkg, reggenes)
-  vals <- c(length(intersect(OnPath,Regulated)),
-            length(intersect(OnPath,NotRegulated)),
-            length(intersect(NotOnPath,Regulated)),
-            length(intersect(NotOnPath,NotRegulated)))
-  return(vals)
-}
-
-#Run Fisher's exact test on every path
-Results <- lapply(1: length(names(paths)), function (x) {
-  v <- MatVals(x, sig)
-  PathMat <- matrix(v, nrow =2,
-                    dimnames = list(Regulated =c("Yes", "No"),
-                                                 OnPath = c("Yes", "No")))
-    fisher.test(PathMat, alternative ="greater")$p.value
-})
-hist(unlist(Results))
-
-qval <- qvalue(unlist(Results))
-qval$pi0
-
-
-path_enrich <- data.frame(path = names(filt.bp.genes_v1), p = unlist(Results), padj = p.adjust(unlist(Results), method = "fdr"))
-
-qs <- qvalue(path_enrich$p)
-
-path_enrich$q <- qs$qvalues
-
-path_enrich$neg_log_p <- -log10(path_enrich$p)
-
-#fold enrichment
-
-enrichment_factor_calc <- function(kinase){
-  subs <- paths[[which(names(paths) == kinase)]]
-  enrichment_factor <- (length(intersect(subs, sig))/length(unique(sig)))/(length(intersect(subs, bkg))/length(unique(bkg)))
-  return(enrichment_factor)
-} 
-
-path_enrich$enrichment_factor <- sapply(names(paths), enrichment_factor_calc)
-path_enrich$log2_enrichment_factor <- log2(path_enrich$enrichment_factor)
-path_enrich$log2_enrichment_factor[-Inf] <- NA
-
-```
-
-plotting fold enrichment vs -log10
-```{r}
-ggplot(path_enrich, aes(x = log2_enrichment_factor, y = neg_log_p, label = path)) +
-  geom_point(colour = "skyblue") +
-  geom_text_repel(data = path_enrich[which(path_enrich$p < 0.05),], size = 3) +
-  geom_hline(yintercept  = -log10(0.05)) +
-  theme_minimal() +
-  dark_mode()+
-  theme(panel.grid = element_blank(),
-        axis.ticks = element_line(),
-        axis.text = element_text(colour = "white"),
-        axis.line = element_line()) +
-  labs(x = "Enrichment factor (Log2)", y = "p-value (-log10)")
-
-
-
-path_enrich_filt <- path_enrich[-which(path_enrich$path == "protein binding"),]
-ggplot(path_enrich_filt, aes(x = log2_enrichment_factor, y = neg_log_p, label = path)) +
-  geom_point(colour = "skyblue") +
-  geom_text_repel(data = path_enrich_filt[which(path_enrich_filt$p < 0.05),], size = 3, max.overlaps = 20) +
-  geom_hline(yintercept  = -log10(0.05)) +
-  theme_minimal() +
-  dark_mode()+
-  theme(panel.grid = element_blank(),
-        axis.ticks = element_line(),
-        axis.text = element_text(colour = "white"),
-        axis.line = element_line()) +
-  labs(x = "Enrichment factor (Log2)", y = "p-value (-log10)")
-```
-bar pltos
-```{r}
-path_enrich_sig <- path_enrich[which(path_enrich$q < 0.05),] %>%
-  arrange(desc(enrichment_factor)) %>% 
-  slice(1:15)
-path_enrich_sig$path <- factor(path_enrich_sig$path, levels = path_enrich_sig[order(path_enrich_sig$enrichment_factor), "path"])
-ggplot(path_enrich_sig, aes(x = enrichment_factor, y = path)) +
-  geom_bar(stat = "identity", fill = "skyblue", width = 0.5) +
-  theme_minimal() +
-  dark_mode() +
-  theme(panel.grid = element_blank(),
-        axis.ticks = element_line(),
-        axis.text = element_text(colour = "white"),
-        axis.line = element_line()) +
-  scale_x_continuous(position = "top") +
-  labs(x = "Enrichment Factor", y = "")
-
-path_enrich_sig <- path_enrich[which(path_enrich$p < 0.05),]%>%
-  arrange(desc(enrichment_factor)) %>% 
-  slice(1:15)
-path_enrich_sig$path <- factor(path_enrich_sig$path, levels = path_enrich_sig[order(path_enrich_sig$enrichment_factor), "path"])
-ggplot(path_enrich_sig, aes(x = enrichment_factor, y = path)) +
-  geom_bar(stat = "identity", fill = "skyblue", width = 0.5) +
-  theme_minimal() +
-  dark_mode() +
-  theme(panel.grid = element_blank(),
-        axis.ticks = element_line(),
-        axis.text = element_text(colour = "white"),
-        axis.line = element_line()) +
-  scale_x_continuous(position = "top") +
-  labs(x = "Enrichment Factor", y = "")
 ```
 
 ```{r}
@@ -282,7 +168,7 @@ ggplot(GO_plot, aes(x = Description, y = Count)) +
     panel.grid = element_blank()
   )
 
-ggplot(GO_plot, aes(x = Count, y = Description, fill = p.adjust)) +
+ggplot(GO_plot, aes(x = FoldEnrichment, y = Description, fill = p.adjust)) +
  geom_col() +
  scale_fill_gradient(
  low = "firebrick",
@@ -299,6 +185,9 @@ ggplot(GO_plot, aes(x = Count, y = Description, fill = p.adjust)) +
  legend.position = "right",
  axis.text.y = element_text(hjust = 1)
  )
+
+#replace count with enrichment factor
+#P value- how sure you are,  
 
 ```
 Statistical difference plot 

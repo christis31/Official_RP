@@ -165,6 +165,46 @@ write.csv(
 )
 ```
 
+```{r}
+#1bp
+hits_3 <- findOverlaps(gr_cad, gr_pqtl, maxgap = 3)
+
+#create dataframe
+overlap_3 <- as_tibble(data.frame(
+    CAD_index  = queryHits(hits_3),
+    pQTL_index = subjectHits(hits_3)
+)) %>%
+  mutate(
+    CAD_marker = mcols(gr_cad)$CAD_marker[CAD_index],
+    pQTL_marker = mcols(gr_pqtl)$pQTL_marker[pQTL_index]
+  ) %>%
+  select(CAD_marker, pQTL_marker)
+
+#117 to do coloc on
+```
+
+
+```{r}
+#100kpb look trends in
+
+#map to glycosylation database
+#how many pqtld on proteins that have known glycosylaiton sites
+#how amny trans genes are enzymes
+hits_100k <- findOverlaps(gr_cad, gr_pqtl, maxgap = 100000)
+
+#create dataframe
+overlap_100 <- as_tibble(data.frame(
+    CAD_index  = queryHits(hits_100k),
+    pQTL_index = subjectHits(hits_100k)
+)) %>%
+  mutate(
+    CAD_marker = mcols(gr_cad)$CAD_marker[CAD_index],
+    pQTL_marker = mcols(gr_pqtl)$pQTL_marker[pQTL_index]
+  ) %>%
+  select(CAD_marker, pQTL_marker)
+
+```
+
 map your variants to the nearest gene located (Bioinformatics.annotated gene) and affected protein and the gene fo that proteib (Assay.Target and Target.UniProt) 
 
 ```{r}
@@ -175,6 +215,8 @@ pqtl_annotation <- pqtl %>%
          Bioinfomatic.annotated.gene)
 
 rename markername to 
+
+#try 1bp 
 
 annotated_overlap_500k <- merge(overlap_500k,
                                          pqtl_annotation,
