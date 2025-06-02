@@ -40,6 +40,9 @@ librarian::shelf(tidyverse, purrr, BiocManager, AnnotationDbi,
 ```{r}
 #Load data
 cad_bed <- read.table(".\\data\\raw\\hglft_genome_31753d_markername.bed", header = FALSE, stringsAsFactors = FALSE)
+
+cad_bed <- cad_bed %>%
+  
 colnames(cad_bed) <- c("chr", "start", "end", "markername")
 
 pqtl <- as.data.frame(read.csv(".\\data\\raw\\pQTL_discovery.csv"))
