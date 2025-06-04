@@ -112,7 +112,6 @@ qtls <- readRDS("int_files/12_c_PHOS_EURO_potential_vep_transqtl_info.rds")
 filt <-qtls[which(qtls$V6 %in% of_interest),]
 View(filt)
 ```
-#chatpgt way
 ```{r}
 trans_entrez <- mapIds(org.Hs.eg.db, keys = trans_genes, keytype = "SYMBOL", column = "ENTREZID")
 reference_entrez <- mapIds(org.Hs.eg.db, keys = all_human_genes, keytype = "SYMBOL", column = "ENTREZID")
