@@ -64,7 +64,7 @@ print(gr_cad)
 pqtl$position <- pqtl$GENPOS..hg38.
 pqtl$markername <- pqtl$Variant.ID..CHROM.GENPOS..hg37..A0.A1.imp.v1.
 
-gr_pqtl_500 <-  GRanges(
+gr_pqtl <-  GRanges(
     seqnames = pqtl$CHROM,
     ranges   = IRanges(start = pqtl$position,
                        end   = pqtl$position),
@@ -72,7 +72,6 @@ gr_pqtl_500 <-  GRanges(
     pQTL_marker = pqtl[["markername"]]
 )
 
-print(gr_pqtl)
 ```
 
 find overlaps
@@ -91,7 +90,7 @@ overlap_500k <- as_tibble(data.frame(
     CAD_marker = mcols(gr_cad)$CAD_marker[CAD_index],
     pQTL_marker = mcols(gr_pqtl)$pQTL_marker[pQTL_index]
   ) %>%
-  select(CAD_marker, pQTL_marker)
+  dplyr::select(CAD_marker, pQTL_marker)
 
 #uplaod to onedrive
 saveRDS(
@@ -121,7 +120,7 @@ overlap_5k <- as_tibble(data.frame(
     CAD_marker = mcols(gr_cad)$CAD_marker[CAD_index],
     pQTL_marker = mcols(gr_pqtl)$pQTL_marker[pQTL_index]
   ) %>%
-  select(CAD_marker, pQTL_marker)
+  dplyr::select(CAD_marker, pQTL_marker)
 
 #uplaod to onedrive
 
@@ -150,7 +149,7 @@ overlap_1k <- as_tibble(data.frame(
     CAD_marker = mcols(gr_cad)$CAD_marker[CAD_index],
     pQTL_marker = mcols(gr_pqtl)$pQTL_marker[pQTL_index]
   ) %>%
-  select(CAD_marker, pQTL_marker)
+  dplyr::select(CAD_marker, pQTL_marker)
 
 #upload to onedrive
 saveRDS(
@@ -178,9 +177,19 @@ overlap_3 <- as_tibble(data.frame(
     CAD_marker = mcols(gr_cad)$CAD_marker[CAD_index],
     pQTL_marker = mcols(gr_pqtl)$pQTL_marker[pQTL_index]
   ) %>%
-  select(CAD_marker, pQTL_marker)
+  dplyr::select(CAD_marker, pQTL_marker)
 
 #117 to do coloc on
+saveRDS(
+  overlap_3,
+  file = "./data\\processed\\overlap_3.RDS"
+)
+
+write.csv(
+  overlap_3,
+  file = "./data\\processed\\overlap_3.csv",
+  row.names = FALSE
+)
 ```
 
 
@@ -193,7 +202,7 @@ overlap_3 <- as_tibble(data.frame(
 hits_100k <- findOverlaps(gr_cad, gr_pqtl, maxgap = 100000)
 
 #create dataframe
-overlap_100 <- as_tibble(data.frame(
+overlap_100k <- as_tibble(data.frame(
     CAD_index  = queryHits(hits_100k),
     pQTL_index = subjectHits(hits_100k)
 )) %>%
@@ -201,8 +210,18 @@ overlap_100 <- as_tibble(data.frame(
     CAD_marker = mcols(gr_cad)$CAD_marker[CAD_index],
     pQTL_marker = mcols(gr_pqtl)$pQTL_marker[pQTL_index]
   ) %>%
-  select(CAD_marker, pQTL_marker)
+  dplyr::select(CAD_marker, pQTL_marker)
 
+saveRDS(
+  overlap_100k,
+  file = "./data\\processed\\overlap_100k.RDS"
+)
+
+write.csv(
+  overlap_100k,
+  file = "./data\\processed\\overlap_100k.csv",
+  row.names = FALSE
+)
 ```
 
 map your variants to the nearest gene located (Bioinformatics.annotated gene) and affected protein and the gene fo that proteib (Assay.Target and Target.UniProt) 
@@ -212,25 +231,89 @@ pqtl_annotation <- pqtl %>%
   dplyr::select(markername,
          Assay.Target,
          Target.UniProt,
-         Bioinfomatic.annotated.gene)
-
-rename markername to 
+         Bioinfomatic.annotated.gene)%>%
+  dplyr::rename(pQTL_marker = markername)
 
 #try 1bp 
 
 annotated_overlap_500k <- merge(overlap_500k,
                                          pqtl_annotation,
-                                         by = "markername",
+                                         by = "pQTL_marker",
                                          all.x = TRUE)
 
 annotated_overlap_5k <- merge(overlap_5k,
                                          pqtl_annotation,
-                                         by = "markername",
+                                         by = "pQTL_marker",
                                          all.x = TRUE)
 
 annotated_overlap_1k <- merge(overlap_1k,
                                          pqtl_annotation,
-                                         by = "markername",
+                                         by = "pQTL_marker",
                                          all.x = TRUE)
+
+annotated_overlap_100k <- merge(overlap_100k,
+                                         pqtl_annotation,
+                                         by = "pQTL_marker",
+                                         all.x = TRUE)
+
+annotated_overlap_3 <- merge(overlap_3,
+                                         pqtl_annotation,
+                                         by = "pQTL_marker",
+                                         all.x = TRUE)
+```
+
+Upload the enzyme and lectin data
+```{r}
+data_filt_glyenz <- read.csv("./data\\processed\\data_filt_glyenz.csv")
+data_gly <-read.csv("./data\\processed\\data_gly_final.csv")
+
+#check overlap on annotated gene with enzyme data
+
+overlap_gene_500k <- unique(annotated_overlap_500k$Bioinfomatic.annotated.gene)
+
+overlap_gene_100k <- unique(annotated_overlap_100k$Bioinfomatic.annotated.gene)
+
+overlap_gene_5k <- unique(annotated_overlap_5k$Bioinfomatic.annotated.gene)
+
+overlap_gene_1k <- unique(annotated_overlap_1k$Bioinfomatic.annotated.gene)
+
+overlap_gene_3 <- unique(annotated_overlap_3$Bioinfomatic.annotated.gene)
+
+common_overlap_enz_500k <- intersect(overlap_gene_500k, data_filt_glyenz$enz_gene)
+
+common_overlap_enz_100k <- intersect(overlap_gene_100k, data_filt_glyenz$enz_gene)
+
+common_overlap_enz_5k <- intersect(overlap_gene_5k, data_filt_glyenz$enz_gene)
+
+common_overlap_enz_1k <- intersect(overlap_gene_1k, data_filt_glyenz$enz_gene)
+
+common_overlap_enz_3 <- intersect(overlap_gene_3, data_filt_glyenz$enz_gene)
+
+#check overlap of assay target with targets in enzyme 
+
+overlap_target_500k <- unique(annotated_overlap_500k$Assay.Target)
+
+overlap_target_100k <- unique(annotated_overlap_100k$Assay.Target)
+
+overlap_target_5k <- unique(annotated_overlap_5k$Assay.Target)
+
+overlap_target_1k <- unique(annotated_overlap_1k$Assay.Target)
+
+overlap_target_3 <- unique(annotated_overlap_3$Assay.Target)
+
+common_overlap_target_500k <- intersect(overlap_target_500k, data_filt_glyenz$uniprotkb_canonical_ac)
+
+common_overlap_target_100k <- intersect(overlap_target_100k, data_filt_glyenz$uniprotkb_canonical_ac)
+
+common_overlap_target_5k <- intersect(overlap_target_5k, data_filt_glyenz$uniprotkb_canonical_ac)
+
+common_overlap_target_1k <- intersect(overlap_target_1k, data_filt_glyenz$uniprotkb_canonical_ac)
+
+common_overlap_target_3 <- intersect(overlap_target_3, data_filt_glyenz$uniprotkb_canonical_ac)
+
+#overlap with glycosylation in general?
+
+
+
 ```
 
