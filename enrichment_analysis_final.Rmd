@@ -34,7 +34,7 @@ if (!require("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
 BiocManager::install(version = "3.20")
 librarian::shelf(tidyverse, purrr, BiocManager, AnnotationDbi, 
-                 qvalue, GO.db, org.Hs.eg.db, reshape2, UniProt.ws, biomaRt, GenomicRanges, ggplot2, clusterProfiler, stringr, scales)
+                 qvalue, GO.db, org.Hs.eg.db, reshape2, UniProt.ws, biomaRt, GenomicRanges, ggplot2, clusterProfiler, stringr, scales, viridis, enrichplot, DOSE)
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
@@ -57,61 +57,6 @@ all_human_genes <- all_genes$Approved.symbol
 
 ```
 
-```{r}
-prots_go <- na.omit(unique(AnnotationDbi::select(org.Hs.eg.db, all_human_genes, "GO", "SYMBOL")))
-
-index.all = which(AnnotationDbi::select(GO.db, prots_go$GO, "ONTOLOGY", "GOID")[,2] == "MF")
-all.ids.for.mf = unique(AnnotationDbi::select(GO.db, prots_go$GO, "TERM", "GOID")[index.all,])
-go_mf_named = unique(merge(prots_go, all.ids.for.mf, by.x = "GO", by.y = "GOID", all.x = F))
-
-go_mf_named_transqtls <- go_mf_named[which(go_mf_named$SYMBOL %in% trans_genes),]
-
-unique.go.bps = unique(go_mf_named$GO)
-
-bp.genes = list()
-for(i in 1:length(unique.go.bps)){
-  bp.genes[[i]] = unique(go_mf_named[which(go_mf_named$GO == unique.go.bps[i]), "SYMBOL"])
-}
-
-real.names = NULL
-for(i in 1:length(unique.go.bps)){
-  if(length(go_mf_named[which(go_mf_named$GO == unique.go.bps[i]), "TERM"]) > 0){
-    real.names[i] = unique(go_mf_named[which(go_mf_named$GO == unique.go.bps[i]), "TERM"])
-  }else{
-    real.names[i] =unique.go.bps[i]
-  }
-}
-
-names(bp.genes) = real.names
-
-filt.bp.genes_v1 = bp.genes[which(unlist(lapply(bp.genes, length)) > 19)]
-```
-
-```{r}
-
-```
-
-```{r}
-transql_genes_in_paths <- lapply(filt.bp.genes_v1, function(x){
-  intersect(x, trans_genes)
-})
-
-transql_genes_in_paths$`coreceptor activity`
-transql_genes_in_paths$`phospholipid binding`
-transql_genes_in_paths$`ligand-gated ion channel activity`
-transql_genes_in_paths$'protein kinase activity'
-
-of_interest <- c(transql_genes_in_paths$`signaling receptor activity`,
-                 transql_genes_in_paths$`ligand-gated ion channel activity`,
-                 transql_genes_in_paths$'protein kinase activity',
-                 transql_genes_in_paths$`GTPase activator activity`)
-
-#find which snps they belong to
-qtls <- readRDS("int_files/12_c_PHOS_EURO_potential_vep_transqtl_info.rds")
-
-filt <-qtls[which(qtls$V6 %in% of_interest),]
-View(filt)
-```
 ```{r}
 trans_entrez <- mapIds(org.Hs.eg.db, keys = trans_genes, keytype = "SYMBOL", column = "ENTREZID")
 reference_entrez <- mapIds(org.Hs.eg.db, keys = all_human_genes, keytype = "SYMBOL", column = "ENTREZID")
@@ -169,14 +114,12 @@ ggplot(GO_plot, aes(x = Description, y = Count)) +
 
 ggplot(GO_plot, aes(x = FoldEnrichment, y = Description, fill = p.adjust)) +
  geom_col() +
- scale_fill_gradient(
- low = "firebrick",
- high = "steelblue",
- name = "Adj. P-value"
+ scale_fill_viridis_c(
+ name = "Adj. P-value", option = "D"
  ) +
  labs(
  title = "Top 10 GO Molecular Function Terms - transpQTL",
- x = "Count",
+ x = "Enrichment Factor",
  y = NULL
  ) +
  theme_minimal(base_size = 14) +
@@ -194,20 +137,18 @@ Statistical difference plot
 # Prepare data, how to do significance figure
 GO_result$pval <- GO_result$p.adjust
 
-GO_plot <- GO_result %>%
-  filter(pval < 0.05) %>%
-  arrange(pval) %>%
-  slice(1:15) %>%
-  mutate(
-    Description = str_wrap(Description, width = 40),
-    Description = factor(Description, levels = rev(Description))
-  )
+GO_result %>% filter(p.adjust < 0.05) %>% slice(1:20) %>%
+ ggplot(
+  aes(GeneRatio, forcats::fct_reorder(Description, FoldEnrichment))) + 
+  geom_segment(aes(xend=0, yend = Description)) +
+  geom_point(aes(color=p.adjust, size = Count)) +
+  scale_color_viridis_c(guide=guide_colorbar(reverse=TRUE)) +
+  scale_size_continuous(range=c(1, 7)) +
+  theme_minimal() + 
+  xlab("Enrichment Factor") +
+  ylab(NULL) + 
+  ggtitle("GO Over-repressentation Enrichment Analysis")
 
 
-```
-ksea package - directional enrichment
-```{r}
-psp_path <- system.file("extdata", "PSP_human.csv", package = "KSEAapp")
-PSP_human <- read.csv(psp_path, stringsAsFactors = FALSE)
 ```
 
