@@ -139,7 +139,7 @@ GO_result$pval <- GO_result$p.adjust
 
 GO_result %>% filter(p.adjust < 0.05) %>% slice(1:20) %>%
  ggplot(
-  aes(GeneRatio, forcats::fct_reorder(Description, FoldEnrichment))) + 
+  aes(FoldEnrichment, forcats::fct_reorder(Description, FoldEnrichment))) + 
   geom_segment(aes(xend=0, yend = Description)) +
   geom_point(aes(color=p.adjust, size = Count)) +
   scale_color_viridis_c(guide=guide_colorbar(reverse=TRUE)) +
