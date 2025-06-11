@@ -47,8 +47,15 @@ pqtl$cis.trans <- as.factor(pqtl$cis.trans)
 trans <- pqtl %>%
   filter(cis.trans == "trans")
 
+cis <- pqtl %>%
+  filter(cis.trans == "cis")
+
 #geen set where pqtls are located in 
 trans_genes <- unique (trans$Bioinfomatic.annotated.gene)
+
+cis_genes <- unique (cis$Bioinfomatic.annotated.gene)
+
+pqtl_genes <- unique( pqtl$Bioinfomatic.annotated.gene)
 
 #human genome
 all_genes <- read.table(".\\data\\raw\\ALL_gene_names_hgnc.txt", header = TRUE, sep = "\t", stringsAsFactors = FALSE)
@@ -64,7 +71,11 @@ reference_entrez <- mapIds(org.Hs.eg.db, keys = all_human_genes, keytype = "SYMB
 trans_entrez <- na.omit(trans_entrez)
 reference_entrez <- na.omit(reference_entrez)
 
+pqtl_entrez <- mapIds(org.Hs.eg.db, keys = pqtl_genes, keytype = "SYMBOL", column = "ENTREZID")
+pqtl_entrez <- na.omit(pqtl_entrez)
 
+cis_entrez <- mapIds(org.Hs.eg.db, keys = pqtl_genes, keytype = "SYMBOL", column = "ENTREZID")
+cis_entrez <- na.omit(cis_entrez)
 
 ```
 
@@ -118,7 +129,7 @@ ggplot(GO_plot, aes(x = FoldEnrichment, y = Description, fill = p.adjust)) +
  name = "Adj. P-value", option = "D"
  ) +
  labs(
- title = "Top 10 GO Molecular Function Terms - transpQTL",
+ title = "GO Enrichment Analysis (ORA)",
  x = "Enrichment Factor",
  y = NULL
  ) +
@@ -137,7 +148,7 @@ Statistical difference plot
 # Prepare data, how to do significance figure
 GO_result$pval <- GO_result$p.adjust
 
-GO_result %>% filter(p.adjust < 0.05) %>% slice(1:20) %>%
+GO_graph_count_ef <- GO_result %>% filter(p.adjust < 0.05) %>% slice(1:20) %>%
  ggplot(
   aes(FoldEnrichment, forcats::fct_reorder(Description, FoldEnrichment))) + 
   geom_segment(aes(xend=0, yend = Description)) +
@@ -147,8 +158,78 @@ GO_result %>% filter(p.adjust < 0.05) %>% slice(1:20) %>%
   theme_minimal() + 
   xlab("Enrichment Factor") +
   ylab(NULL) + 
-  ggtitle("GO Over-repressentation Enrichment Analysis")
+  ggtitle("GO Enrichment Analysis (ORA)")
 
 
+ggsave(".\\figures\\enrichGO_count_ef.png", plot = GO_graph_count_ef)
+```
+
+```{r}
+ora_result_pqtl <- enrichGO(
+  gene          = pqtl_entrez,
+  universe      = reference_entrez,
+  OrgDb         = org.Hs.eg.db,
+  ont           = "MF",
+  pAdjustMethod = "BH",
+  qvalueCutoff  = 0.05,
+  readable      = TRUE
+)
+
+# View results
+head(ora_result_pqtl)
+```
+plot pqtl enrichment
+```{r}
+GO_result_pqtl <- as.data.frame(ora_result_pqtl)
+
+GO_graph_count_ef_pqtl <- GO_result_pqtl %>% filter(p.adjust < 0.05) %>% slice(1:20) %>%
+ ggplot(
+  aes(FoldEnrichment, forcats::fct_reorder(Description, FoldEnrichment))) + 
+  geom_segment(aes(xend=0, yend = Description)) +
+  geom_point(aes(color=p.adjust, size = Count)) +
+  scale_color_viridis_c(guide=guide_colorbar(reverse=TRUE)) +
+  scale_size_continuous(range=c(1, 7)) +
+  theme_minimal() + 
+  xlab("Enrichment Factor") +
+  ylab(NULL) + 
+  ggtitle("GO Enrichment Analysis (ORA) - pQTL")
+
+
+ggsave(".\\figures\\enrichGO_count_ef_pqtl.png", plot = GO_graph_count_ef_pqtl)
+
+```
+```{r}
+ora_result_cis <- enrichGO(
+  gene          = cis_entrez,
+  universe      = reference_entrez,
+  OrgDb         = org.Hs.eg.db,
+  ont           = "MF",
+  pAdjustMethod = "BH",
+  qvalueCutoff  = 0.05,
+  readable      = TRUE
+)
+
+# View results
+head(ora_result_cis)
+```
+
+
+```{r}
+GO_result_cis <- as.data.frame(ora_result_cis)
+
+GO_graph_count_ef_cis <- GO_result_cis %>% filter(p.adjust < 0.05) %>% slice(1:20) %>%
+ ggplot(
+  aes(FoldEnrichment, forcats::fct_reorder(Description, FoldEnrichment))) + 
+  geom_segment(aes(xend=0, yend = Description)) +
+  geom_point(aes(color=p.adjust, size = Count)) +
+  scale_color_viridis_c(guide=guide_colorbar(reverse=TRUE)) +
+  scale_size_continuous(range=c(1, 7)) +
+  theme_minimal() + 
+  xlab("Enrichment Factor") +
+  ylab(NULL) + 
+  ggtitle("GO Enrichment Analysis (ORA) - cis-pQTL")
+
+
+ggsave(".\\figures\\enrichGO_count_ef_cis.png", plot = GO_graph_count_ef_cis)
 ```
 
