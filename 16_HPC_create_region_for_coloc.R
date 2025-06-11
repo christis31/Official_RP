@@ -26,13 +26,15 @@ plot_title <- as.character(plot_title)
 print("input_data_path:")
 print(input_data_path)
 
-full_input_dir <- paste(input_data_path, "/", phenoname, ".assoc.linear", sep = "")
+full_input_dir <- input_data_path
 
 print("full_input_dir:")
 print(full_input_dir)
 
 #read in the association data to create the Manhattan plot 
-data<-fread(full_input_dir) #plink output format
+data<-fread(full_input_dir)#plink output format
+setnames(data, old = "P-value", new = "P")
+
 data<-as.data.frame(data)
 
 
