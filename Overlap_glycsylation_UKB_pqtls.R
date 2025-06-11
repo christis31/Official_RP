@@ -37,7 +37,7 @@ cispqtl_target <- unique(cis$Target.UniProt)
 length(cispqtl_target) #1953 targeted proteins in cis
 
 #overlap between cis and trans targeted proteins
-length(intersect(cispqtl_ids, transpqtl_ids)) #1715 proteins
+length(intersect(cispqtl_target, transpqtl_target)) #1715 proteins
        
 
 #462 unique in trans taget proteins
@@ -98,8 +98,6 @@ length(common_ids) #1329 of targeted proteins in pqtl are also found in the glyc
 
 data_common_all_uniprot <- data.frame(Common_UniProt_IDs = common_ids)
 
-data_common_all_uniprot <- intersect(pqtl$Target.UniProt, glyco$uniprotkb_canonical_ac)
-
 #Save overlapped uniprot data
 saveRDS(
   data_common_all_uniprot,
@@ -114,7 +112,7 @@ write.csv(
 
 #trans
 common_trans_ids <-intersect(transpqtl_target, glyco_ids)
-length(common_trans_ids) #1230
+length(common_trans_ids) #1230 of targeted proteins in trans are also found in the glycosylated data
 
 data_common_trans_uniprot <- data.frame(Common_trans_UniProt_IDs = common_trans_ids)
 
@@ -251,7 +249,7 @@ length(common_pqtl_enz_genes) #43 genes
 
 #overlap with trans 
 common_trans_enz_genes <- intersect(trans_gene, enzgenes)
-length(common_trans_enz_genes) #40 genes
+length(unique(common_trans_enz_genes)) #40 genes
 
 #overlap with cis
 common_cis_enz_genes <- intersect(cis_gene, enzgenes)
@@ -273,12 +271,36 @@ overlap_enz_table <- data.frame(
 
 print(overlap_enz_table)
 
+##################################################################################
+#Creating enzyme data with only the bioiformatic genes that are found in UKB-PPP
+
+glycosylation_enzyme_PPP <- data_filt_glyenz %>%
+  filter(enz_gene %in% common_trans_enz_genes)%>%
+  select(enz_gene, enzyme_uniprot_ID, uniprotkb_canonical_ac) %>%
+  unique()
+
+
+length(unique(glycosylation_enzyme_PPP$enz_gene)) #40 genes, all good
+
+#save data
+saveRDS(
+  glycosylation_enzyme_PPP,
+  file = "./data\\processed\\cyto_glycosylation_enzyme_PPP.RDS"
+)
+
+write.csv(
+  glycosylation_enzyme_PPP,
+  file = "./data\\processed\\cyto_glycosylation_enzyme_PPP.csv",
+  row.names = FALSE
+)
+
+
 #lectin data
 
 #load data
 data_glylect <- read.csv("./data\\processed\\data_glylect.csv")
 
-#extract lectin genes (only 15 :(
+#extract lectin genes (only 14 :(
 
 lectin_genes <- unique(data_glylect$Lectin_Gene_name)
 length(lectin_genes)
@@ -310,6 +332,45 @@ overlap_lectin_table <- data.frame(
 )
 
 print(overlap_lectin_table)
+
+##################################################################################
+cyto_lectin_gly_PPP <- data_glylect %>%
+  filter(Lectin_Gene_name %in% common_trans_lectin_genes)%>%
+  select(Lectin_Gene_name, LectinUniProt_ID, uniprotkb_canonical_ac) %>%
+  unique()
+
+length(unique(cyto_lectin_gly_PPP$Lectin_Gene_name)) # 4 lectin names
+
+#save data
+saveRDS(
+  cyto_lectin_gly_PPP,
+  file = "./data\\processed\\cyto_lectin_gly_PPP.RDS"
+)
+
+write.csv(
+  cyto_lectin_gly_PPP,
+  file = "./data\\processed\\cyto_lectin_gly_PPP.csv",
+  row.names = FALSE
+)
+
+#I have a feeling I might need lectin genes and protein names instead so making a new column
+cyto_lectin_gly_PPP_2 <- data_glylect %>%
+  filter(Lectin_Gene_name %in% common_trans_lectin_genes)%>%
+  select(Lectin_Gene_name, Protein.Name) %>%
+  filter(!is.na(Protein.Name)) %>%
+  unique()
+
+#save data
+saveRDS(
+  cyto_lectin_gly_PPP_2,
+  file = "./data\\processed\\cyto_lectin_gly_PPP_names.RDS"
+)
+
+write.csv(
+  cyto_lectin_gly_PPP_2,
+  file = "./data\\processed\\cyto_lectin_gly_PPP_names.csv",
+  row.names = FALSE
+)
 
 #################################################################################
 #Since there is a problem with the lectin data involved in glycosylation
