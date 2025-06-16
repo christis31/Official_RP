@@ -289,6 +289,8 @@ common_overlap_enz_1k <- intersect(overlap_gene_1k, data_filt_glyenz$enz_gene)
 
 common_overlap_enz_3 <- intersect(overlap_gene_3, data_filt_glyenz$enz_gene)
 
+print(overlap_gene_3)
+
 #check overlap of assay target with targets in enzyme 
 
 overlap_target_500k <- unique(annotated_overlap_500k$Assay.Target)
