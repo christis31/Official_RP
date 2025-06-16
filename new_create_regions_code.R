@@ -27,19 +27,13 @@ data <- as.data.frame(data)
 
 # Define regions for genes of interest
 gene_regions <- list(
-  PSRC1   = c(chr=1,  start=109817192, end=109823654),
   PCSK9   = c(chr=1,  start=55039548,  end=55064852),
-  TRIM5   = c(chr=11, start=117199700, end=117254100),
-  ATXN2   = c(chr=12, start=111905450, end=111932350),
-  SCARB1  = c(chr=12, start=125170200, end=125198100),
-  C1S     = c(chr=12, start=71872100,  end=71883500),
-  SERPINA1= c(chr=14, start=94812260,  end=94837810),
-  LIPC_AS1= c(chr=15, start=58662000,  end=58674000),
-  ELL     = c(chr=19, start=44772000,  end=44786000),
-  APOE    = c(chr=19, start=44907000,  end=44919000),
-  ANGPTL4 = c(chr=19, start=84252000,  end=84265000),
-  ITGA1   = c(chr=5,  start=52584000,  end=52602000),
-  BMP1    = c(chr=8,  start=123580000, end=123605000)
+  DPAGT1 = c(chr=11, start= 117300744, end=11317269),
+  ST3GAL4 = c(chr= 11, start= 126293027, end= 126342178),
+  GALNT4 = c(chr= 12, start= 124311866, end= 124357191),
+  B3GNT3 = c(chr=19, start= 1044133 , end= 1057083),
+  B3GNT8 = c(chr=19, start= 4023444, end= 4047439),
+  ABO= c(chr=9, start= 136130563, end= 136150630)
 )
 
 if (!(phenoname %in% names(gene_regions))) {
@@ -75,7 +69,3 @@ filt <- data[data$CHR == top_chr & data$BP >= (top_bp - window) & data$BP <= (to
 filt_ordered <- filt[order(filt$BP), ]
 output_file <- file.path(output_data_rootname, paste0(phenoname, "_for_coloc.txt"))
 write.table(filt_ordered, row.names = FALSE, col.names = TRUE, file = output_file)
-
-#Save top snp please
-top_snp_file <- file.path(output_data_rootname, paste0(phenoname, "_top_snp.txt"))
-write.table(top, file = top_snp_file, row.names = FALSE, col.names = TRUE, quote = FALSE)
