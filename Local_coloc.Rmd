@@ -1,0 +1,249 @@
+---
+title: "24_coloc"
+output: html_document
+date: "2025-03-20"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+if("librarian" %in% installed.packages()==FALSE) install.packages("librarian")
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+BiocManager::install(version = "3.20")
+librarian::shelf(tidyverse, data.table, BiocManager, coloc, 
+                 rtracklayer, stringr, parallel)
+
+library(tidyverse)
+```
+
+#try
+#"ANKLE2_Q86XL3_S528"
+#JCAD_Q9P266_S901
+
+#read in sum stats CAD region of interest
+```{r}
+PHENO_OF_INTEREST <- "PSRC1" #the region. We are calling the sum stats region according to the protein match
+
+#EDIT THIS PATH TO MATCH YOUR INPUT. DON'T worry about hard coding right now. You can always come back and automate
+cad_for_coloc_PSRC1 <- read.table(".\\data\\raw\\coloc_PSRC1\\PSRC1_for_coloc.txt", header = TRUE, sep = "", stringsAsFactors = FALSE, fill = TRUE)
+
+
+
+#rename to plink columnnames
+metal_to_plink_formatter <- function(sum_stats){
+ # colnames(sum_stats) <- gsub("P-value", "P", colnames(sum_stats))
+  colnames(sum_stats) <- gsub("MarkerName", "SNP", colnames(sum_stats))
+  colnames(sum_stats) <- gsub("Effect", "BETA", colnames(sum_stats))
+  sum_stats$SNP <- gsub(":", "_", sum_stats$SNP, fixed = T)
+  return(sum_stats)
+}
+
+cad_for_coloc_formatted <- metal_to_plink_formatter(cad_for_coloc_PSRC1)
+colnames(cad_for_coloc_formatted) <- gsub("Freq1", "MAF", colnames(cad_for_coloc_formatted))
+
+lead_snp <- cad_for_coloc_formatted[which.min(cad_for_coloc_formatted$P),] #note the p-val is probably bigger than the data you have been looking at because these are the euro not meta-analysis sum stats
+
+
+
+
+```
+
+
+#read in PROTEIN sum stats and filter
+```{r}
+protein_for_coloc_PSRC1 <- read.table(".\\data\\raw\\coloc_PSRC1\\PSRC1_UKBPPP2.txt", header = TRUE, sep = "", stringsAsFactors = FALSE, fill = TRUE)
+
+head(protein_for_coloc_PSRC1)
+dim(protein_for_coloc_PSRC1)
+
+#Make sure the UKB protein data has columns called SNP, BETA, MAF, N, SE
+#renaming columns
+protein_for_coloc_PSRC1 <- protein_for_coloc_PSRC1 %>%
+  rename(
+    SNP     = variant,
+    CHR     = chr,
+    BP      = pos,
+    P       = p,
+    StdErr  = se,
+    Allele1 = effect_allele,
+    Allele2 = other_allele,
+    N       = n,
+    BETA    = beta,
+    MAF     = eaf
+  )
+  
+
+```
+
+```{r}
+#replace indels with D|I
+process_snp <- function(snp) {
+  parts <- strsplit(snp, "_")[[1]]
+  if (length(parts) != 4) return(snp)  # Skip malformed SNPs
+  
+  ref <- parts[3]
+  alt <- parts[4]
+  
+  if (nchar(ref) > 1 | nchar(alt) > 1) {
+    # Indel detected
+    if (nchar(ref) > nchar(alt)) {
+      ref <- "D"
+      alt <- "I"
+    } else {
+      ref <- "I"
+      alt <- "D"
+    }
+  }
+  
+  # Recombine into the same format
+  return(paste(parts[1], parts[2], ref, alt, sep = "_"))
+}
+
+cad_for_coloc_formatted$SNP <- sapply(cad_for_coloc_formatted$SNP, process_snp)
+protein_for_coloc_PSRC1$SNP <- sapply(protein_for_coloc_PSRC1$SNP, process_snp)
+
+
+####### WHAT?
+# Apply the function to the column
+$SNP <- sapply(data_chr$SNP, process_snp)
+
+write.table(data_chr, file = paste("int_files/", TRAIT_INFO, "_", TRAIT_CODE, "_", "trait_for_locuszoom.txt", sep = ""), quote = F, row.names = F)
+
+trait_data_in_prot <- data_chr[which(data_chr$SNP %in% cad_for_coloc$SNP),]
+dim(trait_data_in_prot)
+
+data_bp_range <- data_chr[which(data_chr$base_pair_location >= min(cad_for_coloc$BP) &
+                                 data_chr$base_pair_location <= max(cad_for_coloc$BP) ),]
+
+#troubleshooting low overlap
+in_prot_not_data <- cad_for_coloc[which(cad_for_coloc$SNP %in% setdiff(cad_for_coloc$SNP, data_chr$SNP)),]
+in_trait_not_prot <- data_bp_range[which(data_bp_range$SNP %in% setdiff(data_bp_range$SNP, cad_for_coloc$SNP)),]
+
+pos_matches <- intersect(in_prot_not_data$BP, in_trait_not_prot$base_pair_location)
+
+in_prot_not_data <- in_prot_not_data[order(in_prot_not_data$BP),]
+in_trait_not_prot <- in_trait_not_prot[order(in_trait_not_prot$hm_pos),]
+# 
+prot_data_in_trait <- cad_for_coloc[which(cad_for_coloc$SNP %in% trait_data_in_prot$SNP),]
+dim(prot_data_in_trait)
+
+all(trait_data_in_prot$SNP == prot_data_in_trait$SNP)
+trait_data_in_prot_ordered <- trait_data_in_prot[order(trait_data_in_prot$SNP),]
+prot_data_in_trait_ordered <- prot_data_in_trait[order(prot_data_in_trait$SNP),]
+
+all(trait_data_in_prot_ordered$SNP == prot_data_in_trait_ordered$SNP)
+
+#data_chr[which(data_chr$hm_pos < 155846691 & data_chr$hm_pos > 155846671),]
+head(prot_data_in_trait_ordered[order(prot_data_in_trait_ordered$P, decreasing = F),])
+######
+```
+
+
+
+#need the same snps in the same order. Will need to invert beta and maf if flipped
+```{r}
+align_ASCII_sort <- function(data, effect_allele, other_allele, beta = "BETA", maf = "MAF") {
+  A1 <- data[[effect_allele]]
+  A2 <- data[[other_allele]]
+  sorted <- t(apply(cbind(A1, A2), 1, sort))
+  flip <- A1 != sorted[,1]
+  data[[beta]][flip] <- -data[[beta]][flip]
+  data[[maf]][flip] <- 1 - data[[maf]][flip]
+  data[[effect_allele]] <- sorted[,1]
+  data[[other_allele]] <- sorted[,2]
+  data$flipped_ascii_sort <- flip
+  return(data)
+}
+
+cad_for_coloc_formatted$BETA <- as.numeric(cad_for_coloc_formatted$BETA)
+protein_for_coloc_PSRC1$BETA <- as.numeric(protein_for_coloc_PSRC1$BETA)
+
+
+#####
+create_SNPid <- function(dataset, chr, pos, other_allele, effect_allele) {
+
+    # Construct SNP ID: chr_pos_A1_A2
+    SNPid <- paste(dataset[[chr]], dataset[[pos]], dataset[[effect_allele]], dataset[[other_allele]], sep = "_")
+
+    return(SNPid)
+}
+#####
+
+#UP TO HERE YOU NEED TO GET MAFS SOMEHOW: UKB COULD DO ????
+
+cad_for_coloc_sorted <- align_ASCII_sort(data = cad_for_coloc_formatted, effect_allele = "Allele1", other_allele = "Allele2", beta = "BETA", maf = "MAF") #had to delete SNPid
+cad_for_coloc_sorted$MAF_ascii <- cad_for_coloc_sorted$MAF
+cad_for_coloc_sorted$ascii_snpid <- create_SNPid(cad_for_coloc_sorted, "CHR", "BP", "Allele2", "Allele1")
+
+
+protein_for_coloc_sorted$Allele1 <- tolower(protein_for_coloc_sorted$Allele1)
+protein_for_coloc_sorted$Allele2 <- tolower(protein_for_coloc_sorted$Allele2)
+
+protein_for_coloc_sorted <- align_ASCII_sort(data = protein_for_coloc_PSRC1, effect_allele = "Allele1", other_allele = "Allele2", beta = "BETA", maf = "MAF") #had to delete SNPid
+protein_for_coloc_sorted$MAF_ascii <- protein_for_coloc_sorted$MAF
+protein_for_coloc_sorted$ascii_snpid <- create_SNPid(protein_for_coloc_sorted, "CHR", "BP", "Allele2", "Allele1")
+```
+
+#filter for only common snps
+```{r}
+
+#prot data
+#need to convert uppercase to lowercase for protein_for_coloc_sorted
+
+
+cad_for_coloc_common <- cad_for_coloc_sorted[which(cad_for_coloc_sorted$ascii_snpid %in% protein_for_coloc_sorted$ascii_snpid),]
+
+dim(cad_for_coloc_common) #4698
+cad_for_coloc_common <- cad_for_coloc_common[order(cad_for_coloc_common$ascii_snpid),]
+
+#trait data
+prot_data_common <- protein_for_coloc_sorted[which(protein_for_coloc_sorted$ascii_snpid %in% cad_for_coloc_common$ascii_snpid),]
+prot_data_common <- prot_data_common[order(prot_data_common$ascii_snpid),]
+
+
+
+#IMPORTANT THIS SAYS TRUE
+all(cad_for_coloc_common$ascii_snpid == prot_data_common$ascii_snpid) #TRUE
+
+cad_for_coloc_common$varbeta <- (cad_for_coloc_common$StdErr)^2
+prot_data_common$varbeta <-(prot_data_common$StdErr)^2
+```
+
+#format CAD and protien sum stats for coloc
+```{r}
+
+cad_for_coloc_common <- cad_for_coloc_common %>%
+  distinct(SNP, .keep_all = TRUE)
+
+cad_input_list <- list(
+  snp = cad_for_coloc_common$SNP,
+  beta = cad_for_coloc_common$BETA,
+  varbeta = cad_for_coloc_common$varbeta,
+  MAF = cad_for_coloc_common$MAF,
+  N = cad_for_coloc_common$N,
+  type = "cc" #case control
+)
+
+prot_data_common <- prot_data_common %>%
+  distinct(SNP, .keep_all = TRUE)
+
+protein_input_list <- list(
+  snp = prot_data_common$SNP,
+  beta = prot_data_common$BETA,
+  varbeta = prot_data_common$varbeta,
+  sdY = 1, #because the protein values are already normalised 
+  MAF = prot_data_common$MAF,
+  N = prot_data_common$N , 
+  type = "quant"
+)
+
+coloc.abf(cad_input_list, protein_input_list)
+
+```
+
+
+#run colocalisation
+```{r}
+```
+
