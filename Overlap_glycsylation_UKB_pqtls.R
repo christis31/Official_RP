@@ -271,16 +271,25 @@ overlap_enz_table <- data.frame(
 
 print(overlap_enz_table)
 
+#enzyme targets found in UKB-PPP
+enz_targets <- data_filt_glyenz$uniprotkb_canonical_ac
+
+overlap_enz_target <- intersect(enz_targets,transpqtl_target)
+
 ##################################################################################
 #Creating enzyme data with only the bioiformatic genes that are found in UKB-PPP
 
 glycosylation_enzyme_PPP <- data_filt_glyenz %>%
   filter(enz_gene %in% common_trans_enz_genes)%>%
-  select(enz_gene, enzyme_uniprot_ID, uniprotkb_canonical_ac) %>%
+  filter(uniprotkb_canonical_ac %in% overlap_enz_target) %>%
+  dplyr::select(enz_gene, enzyme_uniprot_ID, uniprotkb_canonical_ac, Gene_name) %>%
   unique()
 
 
+
 length(unique(glycosylation_enzyme_PPP$enz_gene)) #40 genes, all good
+
+#assay targets should also be proteins found as targets in UKB-PPP
 
 #save data
 saveRDS(
@@ -334,9 +343,15 @@ overlap_lectin_table <- data.frame(
 print(overlap_lectin_table)
 
 ##################################################################################
+
+lectin_targets <- data_glylect$uniprotkb_canonical_ac
+
+overlap_lectin_ukb_targets <- intersect(lectin_targets, transpqtl_target)
+
 cyto_lectin_gly_PPP <- data_glylect %>%
   filter(Lectin_Gene_name %in% common_trans_lectin_genes)%>%
-  select(Lectin_Gene_name, LectinUniProt_ID, uniprotkb_canonical_ac) %>%
+  filter(uniprotkb_canonical_ac %in% overlap_lectin_ukb_targets) %>%
+  dplyr::select(Lectin_Gene_name, LectinUniProt_ID, uniprotkb_canonical_ac, Gene_name) %>%
   unique()
 
 length(unique(cyto_lectin_gly_PPP$Lectin_Gene_name)) # 4 lectin names
