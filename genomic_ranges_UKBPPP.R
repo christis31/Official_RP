@@ -1,16 +1,36 @@
-suppressPackageStartupMessages({
-  library(remotes)
-  library(tidyverse)
-  library(data.table)
-  library(assertthat)
-  library(rtracklayer)
-  library(GenomicRanges)
-  library(ieugwasr)
-  library(readr)
-})
+# Set persistent user library location
+user_lib <- Sys.getenv("R_LIBS_USER", unset = file.path("~", "R/library"))
+if (!dir.exists(user_lib)) dir.create(user_lib, recursive = TRUE)
+.libPaths(c(user_lib, .libPaths()))
 
-#### Change any cw869 to your username
+# List of required packages
+packages <- c(
+  "BiocManager", "GenomicRanges", "rtracklayer", "data.table",
+  "readr", "remotes", "tidyverse"
+)
 
+# Install any missing packages
+install_if_missing <- function(pkg) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    if (pkg %in% rownames(installed.packages(lib.loc = user_lib))) return()
+    if (pkg %in% c("GenomicRanges", "rtracklayer")) {
+      BiocManager::install(pkg, lib = user_lib, ask = FALSE, update = FALSE)
+    } else {
+      install.packages(pkg, lib = user_lib, repos = "https://cloud.r-project.org")
+    }
+  }
+}
+
+# Ensure BiocManager is installed first
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+  install.packages("BiocManager", lib = user_lib, repos = "https://cloud.r-project.org")
+}
+
+# Install all necessary packages
+suppressMessages(lapply(packages, install_if_missing))
+
+# Load libraries
+invisible(lapply(packages, library, character.only = TRUE))
 
 # this function creates the "SNPid", with the alphabetically sorted alleles (this is how the reference genomes were created)
 create_SNPid <- function(dataset, chr, pos, other_allele, effect_allele) {
@@ -208,16 +228,23 @@ read_raw_data <- function(CHUNK_ID, NCHUNKS, chr, protein, coloc_start, coloc_en
 # Get the sample size for the protein, this is in the olink_n_samples.tsv
 # Read in the olink_n_samples.tsv file
 olink_n_samples <- read_tsv("/home/cn490/rds/hpc-work/olink_n_samples.tsv", col_names = TRUE)
+
+olink_n_samples <- olink_n_samples %>%
+  mutate(filename_clean = gsub("_", ":", filename),
+         filename_clean = sub("(:v1).*", "\\1", filename_clean))
+
+
+
 # Get the sample size for the protein APBB1IP:Q7Z5R6:OID21359:v1
 get_sample_size <- function(protein) {
   # The protein name will directly match a row in the filename column
   sample_size <- olink_n_samples %>%
-    filter(filename == protein) %>%
+    filter(filename_clean == protein) %>%
     pull(N)
 }
 
 # Example usage of get_sample_size function
-sample_size_for_protein <- get_sample_size("PSRC1_Q6PGN9_OID21169_v1")
+sample_size_for_protein <- get_sample_size("PSRC1:Q6PGN9:OID21169:v1") #you should use target ones not bioinformatics.annotated
 
 # How to run:
 # For each one of the proteins set a different CHUNK_ID and NCHUNKS
@@ -225,7 +252,7 @@ sample_size_for_protein <- get_sample_size("PSRC1_Q6PGN9_OID21169_v1")
 # Example
 
 #the top is in position
-top_position <- 109817590
+top_position <- 109817590 #not top snp its the snp found in the other excel 
 protein_summary_stats <- read_raw_data(
   CHUNK_ID = 1,
   NCHUNKS = 1,
@@ -236,7 +263,7 @@ protein_summary_stats <- read_raw_data(
   sample_size = sample_size_for_protein
 )
 
-output_file <- file.path("/rds/user/cn490/hpc-work", paste0("PSRC1_UKBPPP.txt"))
+output_file <- file.path("/rds/user/cn490/hpc-work", paste0("PSRC1_UKBPPP2.txt"))
 write.table(protein_summary_stats, row.names = FALSE, col.names = TRUE, file = output_file)
 
 #not sure how to make it automated for top_position to always find the top position from CAD summary
