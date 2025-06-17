@@ -24,7 +24,7 @@ library(tidyverse)
 #read in sum stats CAD region of interest
 ```{r}
 #EDIT THIS PATH TO MATCH YOUR INPUT. DON'T worry about hard coding right now. You can always come back and automate
-cad_for_coloc <- read.table(".\\data\\raw\\coloc_enz_genes\\ST3GAL4_for_coloc.txt", header = TRUE, sep = "", stringsAsFactors = FALSE, fill = TRUE)
+cad_for_coloc <- read.table(".\\data\\raw\\coloc_enz_genes\\B4GALNT2_for_coloc.txt", header = TRUE, sep = "", stringsAsFactors = FALSE, fill = TRUE)
 
 
 
@@ -51,7 +51,7 @@ lead_snp <- cad_for_coloc_formatted[which.min(cad_for_coloc_formatted$P),] #note
 
 #read in PROTEIN sum stats and filter
 ```{r}
-protein_for_coloc <- as.data.frame(read.table(".\\data\\raw\\coloc_enz_genes\\PRSS27_UKBPPP.txt", header = TRUE, sep = "", stringsAsFactors = FALSE, fill = TRUE))
+protein_for_coloc <- as.data.frame(read.table(".\\data\\raw\\coloc_enz_genes\\UMOD_UKBPPP.txt", header = TRUE, sep = "", stringsAsFactors = FALSE, fill = TRUE))
 
 head(protein_for_coloc)
 dim(protein_for_coloc)
@@ -71,7 +71,8 @@ protein_for_coloc <- protein_for_coloc %>%
     BETA    = beta,
     MAF     = eaf
   )
-
+protein_for_coloc$Allele1 <- tolower(protein_for_coloc$Allele1)
+protein_for_coloc$Allele2 <- tolower(protein_for_coloc$Allele2)
 ```
 
 ```{r}
@@ -107,6 +108,9 @@ protein_for_coloc$SNP <- sapply(protein_for_coloc$SNP, process_snp)
 
 #need the same snps in the same order. Will need to invert beta and maf if flipped
 ```{r}
+
+
+
 align_ASCII_sort <- function(data, effect_allele, other_allele, beta = "BETA", maf = "MAF") {
   A1 <- data[[effect_allele]]
   A2 <- data[[other_allele]]
@@ -140,11 +144,11 @@ cad_for_coloc_sorted <- align_ASCII_sort(data = cad_for_coloc_formatted, effect_
 cad_for_coloc_sorted$MAF_ascii <- cad_for_coloc_sorted$MAF
 cad_for_coloc_sorted$ascii_snpid <- create_SNPid(cad_for_coloc_sorted, "CHR", "BP", "Allele2", "Allele1")
 
-protein_for_coloc_sorted$Allele1 <- tolower(protein_for_coloc_sorted$Allele1)
-protein_for_coloc_sorted$Allele2 <- tolower(protein_for_coloc_sorted$Allele2)
+
 
 protein_for_coloc_sorted <- align_ASCII_sort(data = protein_for_coloc, effect_allele = "Allele1", other_allele = "Allele2", beta = "BETA", maf = "MAF") #had to delete SNPid
 protein_for_coloc_sorted$MAF_ascii <- protein_for_coloc_sorted$MAF
+
 protein_for_coloc_sorted$ascii_snpid <- create_SNPid(protein_for_coloc_sorted, "CHR", "BP", "Allele2", "Allele1")
 
 
@@ -154,13 +158,10 @@ protein_for_coloc_sorted$ascii_snpid <- create_SNPid(protein_for_coloc_sorted, "
 #filter for only common snps
 ```{r}
 
-#prot data
-#need to convert uppercase to lowercase for protein_for_coloc_sorted
-
 
 cad_for_coloc_common <- cad_for_coloc_sorted[which(cad_for_coloc_sorted$ascii_snpid %in% protein_for_coloc_sorted$ascii_snpid),]
 
-dim(cad_for_coloc_common) #4698
+dim(cad_for_coloc_common) 
 cad_for_coloc_common <- cad_for_coloc_common[order(cad_for_coloc_common$ascii_snpid),]
 
 #trait data
