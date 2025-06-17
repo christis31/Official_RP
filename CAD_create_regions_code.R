@@ -40,10 +40,13 @@ gene_regions <- list(
 
 # Define hard-coded SNP loci for specific genes
 custom_loci <- list(
-  ST3GAL4 = c(chr = 11, pos = 126275402),
-  GALNT4  = c(chr = 12, pos = 89921860),
-  B3GNT3  = c(chr = 19, pos = 17911052),
-  B3GNT8  = c(chr = 19, pos = 41932275)
+  ST3GAL4 = c(chr = 11, pos = 126145297),
+  GALNT4  = c(chr = 12, pos = 90315637),
+  B3GNT3  = c(chr = 19, pos = 18021861),
+  B3GNT8  = c(chr = 19, pos = 42436427),
+  FUT9 = c(chr= 6, pos = 96982354),
+  ST3GAL5 = c(chr=2, pos=86317195),
+  B4GALNT2 = c(chr=17, pos= 45319008)
 )
 
 if (!(phenoname %in% names(gene_regions))) {
