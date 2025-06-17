@@ -1,3 +1,6 @@
+module avail tabix
+module load htslib
+
 # Set persistent user library location
 user_lib <- Sys.getenv("R_LIBS_USER", unset = file.path("~", "R/library"))
 if (!dir.exists(user_lib)) dir.create(user_lib, recursive = TRUE)
@@ -230,8 +233,7 @@ read_raw_data <- function(CHUNK_ID, NCHUNKS, chr, protein, coloc_start, coloc_en
 olink_n_samples <- read_tsv("/home/cn490/rds/hpc-work/olink_n_samples.tsv", col_names = TRUE)
 
 olink_n_samples <- olink_n_samples %>%
-  mutate(filename_clean = gsub("_", ":", filename),
-         filename_clean = sub("(:v1).*", "\\1", filename_clean))
+  mutate(filename_clean = gsub("_", ":", filename))
 
 
 
@@ -244,7 +246,7 @@ get_sample_size <- function(protein) {
 }
 
 # Example usage of get_sample_size function
-sample_size_for_protein <- get_sample_size("PSRC1:Q6PGN9:OID21169:v1") #you should use target ones not bioinformatics.annotated
+sample_size_for_protein <- get_sample_size("EPHA4:P54764:OID30622:v1") #you should use target ones not bioinformatics.annotated
 
 # How to run:
 # For each one of the proteins set a different CHUNK_ID and NCHUNKS
@@ -252,19 +254,17 @@ sample_size_for_protein <- get_sample_size("PSRC1:Q6PGN9:OID21169:v1") #you shou
 # Example
 
 #the top is in position
-top_position <- 109817590 #not top snp its the snp found in the other excel 
+ukbppp_position <- 41932275 #not top snp its the snp found in the other excel 
+ukbppp_chr <- 19
 protein_summary_stats <- read_raw_data(
   CHUNK_ID = 1,
   NCHUNKS = 1,
-  chr = 1,
-  protein = "PSRC1:Q6PGN9:OID21169:v1",
-  coloc_start = top_position - 500000,
-  coloc_end = top_position + 500000,
+  chr = ukbppp_chr,
+  protein = "EPHA4:P54764:OID30622:v1",
+  coloc_start = ukbppp_position - 500000,
+  coloc_end = ukbppp_position + 500000,
   sample_size = sample_size_for_protein
 )
 
-output_file <- file.path("/rds/user/cn490/hpc-work", paste0("PSRC1_UKBPPP2.txt"))
+output_file <- file.path("/rds/user/cn490/hpc-work", paste0("EPHA4_UKBPPP.txt"))
 write.table(protein_summary_stats, row.names = FALSE, col.names = TRUE, file = output_file)
-
-#not sure how to make it automated for top_position to always find the top position from CAD summary
-#so in this case i use the top p value from CAD to find the genomic range for UKB-PPP, right?
