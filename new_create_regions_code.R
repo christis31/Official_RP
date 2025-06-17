@@ -16,7 +16,6 @@ input_data_path <- as.character(input_data_path)
 output_data_rootname <- as.character(output_data_rootname)
 plot_title <- as.character(plot_title)
 
-# Print info
 cat("Input path:", input_data_path, "\n")
 cat("Phenoname:", phenoname, "\n")
 
@@ -28,12 +27,20 @@ data <- as.data.frame(data)
 # Define regions for genes of interest
 gene_regions <- list(
   PCSK9   = c(chr=1,  start=55039548,  end=55064852),
-  DPAGT1 = c(chr=11, start= 117300744, end=11317269),
-  ST3GAL4 = c(chr= 11, start= 126293027, end= 126342178),
-  GALNT4 = c(chr= 12, start= 124311866, end= 124357191),
-  B3GNT3 = c(chr=19, start= 1044133 , end= 1057083),
-  B3GNT8 = c(chr=19, start= 4023444, end= 4047439),
-  ABO= c(chr=9, start= 136130563, end= 136150630)
+  DPAGT1  = c(chr=11, start=117300744, end=11317269),
+  ST3GAL4 = c(chr=11, start=126293027, end=126342178),
+  GALNT4  = c(chr=12, start=124311866, end=124357191),
+  B3GNT3  = c(chr=19, start=1044133 ,  end=1057083),
+  B3GNT8  = c(chr=19, start=4023444,   end=4047439),
+  ABO     = c(chr=9,  start=136130563, end=136150630)
+)
+
+# Define hard-coded SNP loci for specific genes
+custom_loci <- list(
+  ST3GAL4 = c(chr = 11, pos = 126275402),
+  GALNT4  = c(chr = 12, pos = 89921860),
+  B3GNT3  = c(chr = 19, pos = 17911052),
+  B3GNT8  = c(chr = 19, pos = 41932275)
 )
 
 if (!(phenoname %in% names(gene_regions))) {
@@ -56,13 +63,20 @@ if (nrow(gene_data) == 0) {
   stop("No SNPs found in gene region for:", phenoname)
 }
 
-# Step 2: find top SNP (lowest p-value) in the gene region
-top <- gene_data[which.min(gene_data$P), ]
-top_chr <- top$CHR
-top_bp <- top$BP
-
-# Step 3: extract region ±500kb from top SNP (whole file)
+# Step 2: choose SNP position
 window <- 500000
+if (phenoname %in% names(custom_loci)) {
+  top_chr <- custom_loci[[phenoname]]["chr"]
+  top_bp <- custom_loci[[phenoname]]["pos"]
+  cat("Using custom locus for", phenoname, ":", top_chr, top_bp, "\n")
+} else {
+  top <- gene_data[which.min(gene_data$P), ]
+  top_chr <- top$CHR
+  top_bp <- top$BP
+  cat("Using top SNP in region:", top_chr, top_bp, "\n")
+}
+
+# Step 3: extract region ±500kb from selected SNP
 filt <- data[data$CHR == top_chr & data$BP >= (top_bp - window) & data$BP <= (top_bp + window), ]
 
 # Step 4: save output
