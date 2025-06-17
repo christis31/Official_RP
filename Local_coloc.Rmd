@@ -23,10 +23,8 @@ library(tidyverse)
 
 #read in sum stats CAD region of interest
 ```{r}
-PHENO_OF_INTEREST <- "PSRC1" #the region. We are calling the sum stats region according to the protein match
-
 #EDIT THIS PATH TO MATCH YOUR INPUT. DON'T worry about hard coding right now. You can always come back and automate
-cad_for_coloc_PSRC1 <- read.table(".\\data\\raw\\coloc_PSRC1\\PSRC1_for_coloc.txt", header = TRUE, sep = "", stringsAsFactors = FALSE, fill = TRUE)
+cad_for_coloc <- read.table(".\\data\\raw\\coloc_enz_genes\\ST3GAL4_for_coloc.txt", header = TRUE, sep = "", stringsAsFactors = FALSE, fill = TRUE)
 
 
 
@@ -39,11 +37,12 @@ metal_to_plink_formatter <- function(sum_stats){
   return(sum_stats)
 }
 
-cad_for_coloc_formatted <- metal_to_plink_formatter(cad_for_coloc_PSRC1)
+cad_for_coloc_formatted <- metal_to_plink_formatter(cad_for_coloc)
 colnames(cad_for_coloc_formatted) <- gsub("Freq1", "MAF", colnames(cad_for_coloc_formatted))
 
 lead_snp <- cad_for_coloc_formatted[which.min(cad_for_coloc_formatted$P),] #note the p-val is probably bigger than the data you have been looking at because these are the euro not meta-analysis sum stats
 
+#how was the lead_SNP decided here? the one with the lowest p value is that how is hould also do it or should I do the UKB-PPP SNP?
 
 
 
@@ -52,15 +51,15 @@ lead_snp <- cad_for_coloc_formatted[which.min(cad_for_coloc_formatted$P),] #note
 
 #read in PROTEIN sum stats and filter
 ```{r}
-protein_for_coloc_PSRC1 <- read.table(".\\data\\raw\\coloc_PSRC1\\PSRC1_UKBPPP2.txt", header = TRUE, sep = "", stringsAsFactors = FALSE, fill = TRUE)
+protein_for_coloc <- as.data.frame(read.table(".\\data\\raw\\coloc_enz_genes\\PRSS27_UKBPPP.txt", header = TRUE, sep = "", stringsAsFactors = FALSE, fill = TRUE))
 
-head(protein_for_coloc_PSRC1)
-dim(protein_for_coloc_PSRC1)
+head(protein_for_coloc)
+dim(protein_for_coloc)
 
 #Make sure the UKB protein data has columns called SNP, BETA, MAF, N, SE
 #renaming columns
-protein_for_coloc_PSRC1 <- protein_for_coloc_PSRC1 %>%
-  rename(
+protein_for_coloc <- protein_for_coloc %>%
+  dplyr::rename(
     SNP     = variant,
     CHR     = chr,
     BP      = pos,
@@ -72,7 +71,6 @@ protein_for_coloc_PSRC1 <- protein_for_coloc_PSRC1 %>%
     BETA    = beta,
     MAF     = eaf
   )
-  
 
 ```
 
@@ -101,42 +99,8 @@ process_snp <- function(snp) {
 }
 
 cad_for_coloc_formatted$SNP <- sapply(cad_for_coloc_formatted$SNP, process_snp)
-protein_for_coloc_PSRC1$SNP <- sapply(protein_for_coloc_PSRC1$SNP, process_snp)
+protein_for_coloc$SNP <- sapply(protein_for_coloc$SNP, process_snp)
 
-
-####### WHAT?
-# Apply the function to the column
-$SNP <- sapply(data_chr$SNP, process_snp)
-
-write.table(data_chr, file = paste("int_files/", TRAIT_INFO, "_", TRAIT_CODE, "_", "trait_for_locuszoom.txt", sep = ""), quote = F, row.names = F)
-
-trait_data_in_prot <- data_chr[which(data_chr$SNP %in% cad_for_coloc$SNP),]
-dim(trait_data_in_prot)
-
-data_bp_range <- data_chr[which(data_chr$base_pair_location >= min(cad_for_coloc$BP) &
-                                 data_chr$base_pair_location <= max(cad_for_coloc$BP) ),]
-
-#troubleshooting low overlap
-in_prot_not_data <- cad_for_coloc[which(cad_for_coloc$SNP %in% setdiff(cad_for_coloc$SNP, data_chr$SNP)),]
-in_trait_not_prot <- data_bp_range[which(data_bp_range$SNP %in% setdiff(data_bp_range$SNP, cad_for_coloc$SNP)),]
-
-pos_matches <- intersect(in_prot_not_data$BP, in_trait_not_prot$base_pair_location)
-
-in_prot_not_data <- in_prot_not_data[order(in_prot_not_data$BP),]
-in_trait_not_prot <- in_trait_not_prot[order(in_trait_not_prot$hm_pos),]
-# 
-prot_data_in_trait <- cad_for_coloc[which(cad_for_coloc$SNP %in% trait_data_in_prot$SNP),]
-dim(prot_data_in_trait)
-
-all(trait_data_in_prot$SNP == prot_data_in_trait$SNP)
-trait_data_in_prot_ordered <- trait_data_in_prot[order(trait_data_in_prot$SNP),]
-prot_data_in_trait_ordered <- prot_data_in_trait[order(prot_data_in_trait$SNP),]
-
-all(trait_data_in_prot_ordered$SNP == prot_data_in_trait_ordered$SNP)
-
-#data_chr[which(data_chr$hm_pos < 155846691 & data_chr$hm_pos > 155846671),]
-head(prot_data_in_trait_ordered[order(prot_data_in_trait_ordered$P, decreasing = F),])
-######
 ```
 
 
@@ -157,7 +121,7 @@ align_ASCII_sort <- function(data, effect_allele, other_allele, beta = "BETA", m
 }
 
 cad_for_coloc_formatted$BETA <- as.numeric(cad_for_coloc_formatted$BETA)
-protein_for_coloc_PSRC1$BETA <- as.numeric(protein_for_coloc_PSRC1$BETA)
+protein_for_coloc$BETA <- as.numeric(protein_for_coloc$BETA)
 
 
 #####
@@ -176,13 +140,15 @@ cad_for_coloc_sorted <- align_ASCII_sort(data = cad_for_coloc_formatted, effect_
 cad_for_coloc_sorted$MAF_ascii <- cad_for_coloc_sorted$MAF
 cad_for_coloc_sorted$ascii_snpid <- create_SNPid(cad_for_coloc_sorted, "CHR", "BP", "Allele2", "Allele1")
 
-
 protein_for_coloc_sorted$Allele1 <- tolower(protein_for_coloc_sorted$Allele1)
 protein_for_coloc_sorted$Allele2 <- tolower(protein_for_coloc_sorted$Allele2)
 
-protein_for_coloc_sorted <- align_ASCII_sort(data = protein_for_coloc_PSRC1, effect_allele = "Allele1", other_allele = "Allele2", beta = "BETA", maf = "MAF") #had to delete SNPid
+protein_for_coloc_sorted <- align_ASCII_sort(data = protein_for_coloc, effect_allele = "Allele1", other_allele = "Allele2", beta = "BETA", maf = "MAF") #had to delete SNPid
 protein_for_coloc_sorted$MAF_ascii <- protein_for_coloc_sorted$MAF
 protein_for_coloc_sorted$ascii_snpid <- create_SNPid(protein_for_coloc_sorted, "CHR", "BP", "Allele2", "Allele1")
+
+
+
 ```
 
 #filter for only common snps
@@ -238,12 +204,11 @@ protein_input_list <- list(
   type = "quant"
 )
 
-coloc.abf(cad_input_list, protein_input_list)
+coloc_results <- coloc.abf(cad_input_list, protein_input_list)
 
-```
+print(coloc_results)
 
+saveRDS(coloc_results, file = "coloc_results_ST3GAL4_ PRSS27.rds")
 
-#run colocalisation
-```{r}
 ```
 
