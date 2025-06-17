@@ -233,8 +233,8 @@ read_raw_data <- function(CHUNK_ID, NCHUNKS, chr, protein, coloc_start, coloc_en
 olink_n_samples <- read_tsv("/home/cn490/rds/hpc-work/olink_n_samples.tsv", col_names = TRUE)
 
 olink_n_samples <- olink_n_samples %>%
-  mutate(filename_clean = gsub("_", ":", filename))
-
+  mutate(filename_clean = gsub("_", ":", filename),
+         filename_clean = sub("(:v1).*", ":v1", filename_clean))
 
 
 # Get the sample size for the protein APBB1IP:Q7Z5R6:OID21359:v1
