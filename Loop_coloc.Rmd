@@ -1,0 +1,185 @@
+---
+title: "Colocalisation_Local_Final"
+author: "Christis Nicolaides"
+date: "2025-06-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+if (!requireNamespace("librarian", quietly = TRUE)) install.packages("librarian")
+librarian::shelf(
+  tidyverse, data.table, coloc, stringr
+)
+```
+
+```{r}
+process_snp <- function(snp) {
+  parts <- strsplit(snp, "_")[[1]]
+  if (length(parts) != 4) return(snp)
+  ref <- parts[3]; alt <- parts[4]
+  if (nchar(ref) > 1 | nchar(alt) > 1) {
+    ref <- ifelse(nchar(ref) > nchar(alt), "D", "I")
+    alt <- ifelse(nchar(ref) > nchar(alt), "I", "D")
+  }
+  return(paste(parts[1], parts[2], ref, alt, sep = "_"))
+}
+
+# ASCII allele sort
+align_ASCII_sort <- function(data, effect_allele, other_allele, beta = "BETA", maf = "MAF") {
+  A1 <- data[[effect_allele]]
+  A2 <- data[[other_allele]]
+  sorted <- t(apply(cbind(A1, A2), 1, sort))
+  flip <- A1 != sorted[,1]
+  data[[beta]][flip] <- -data[[beta]][flip]
+  data[[maf]][flip] <- 1 - data[[maf]][flip]
+  data[[effect_allele]] <- sorted[,1]
+  data[[other_allele]] <- sorted[,2]
+  data$flipped_ascii_sort <- flip
+  return(data)
+}
+
+# SNP ID creation
+create_SNPid <- function(dataset, chr, pos, other_allele, effect_allele) {
+  paste(dataset[[chr]], dataset[[pos]], dataset[[effect_allele]], dataset[[other_allele]], sep = "_")
+}
+```
+
+```{r}
+# Path to input files
+base_path <- "./data/raw/coloc_enz_genes/"
+
+# Define gene–protein pairs (you can edit this)
+pairings <- list(
+  ST3GAL4 = "PRSS27",
+  GALNT4  = "DSG3",
+  B3GNT3  = "PRR4",
+  B3GNT8  = "EPHA4"
+)
+
+# Format GWAS columns
+metal_to_plink_formatter <- function(df) {
+  colnames(df) <- gsub("MarkerName", "SNP", colnames(df))
+  colnames(df) <- gsub("Effect", "BETA", colnames(df))
+  df$SNP <- gsub(":", "_", df$SNP, fixed = TRUE)
+  return(df)
+}
+
+# Universal formatter
+prepare_data <- function(df, type) {
+  if (type == "gwas") {
+    df <- metal_to_plink_formatter(df)
+    colnames(df) <- gsub("Freq1", "MAF", colnames(df))
+  } else if (type == "protein") {
+    df <- df %>%
+      dplyr::rename(
+        SNP     = variant,
+        CHR     = chr,
+        BP      = pos,
+        P       = p,
+        StdErr  = se,
+        Allele1 = effect_allele,
+        Allele2 = other_allele,
+        N       = n,
+        BETA    = beta,
+        MAF     = eaf
+      )
+  }
+  df$SNP <- sapply(df$SNP, process_snp)
+  df <- align_ASCII_sort(df, "Allele1", "Allele2", "BETA", "MAF")
+  df$MAF_ascii <- df$MAF
+  df$ascii_snpid <- create_SNPid(df, "CHR", "BP", "Allele2", "Allele1")
+  return(df)
+}
+
+# Initialize result list
+results <- list()
+
+# Loop
+for (gene in names(pairings)) {
+  protein <- pairings[[gene]]
+  cat("\n---\nProcessing pair:", gene, "<->", protein, "\n")
+
+  gwas_file <- paste0(base_path, gene, "_for_coloc.txt")
+  protein_file <- paste0(base_path, protein, "_UKBPPP.txt")
+
+  if (!file.exists(gwas_file) || !file.exists(protein_file)) {
+    warning("Missing one of the files for ", gene, "-", protein)
+    next
+  }
+
+  gwas_df <- fread(gwas_file, data.table = FALSE)
+  protein_df <- fread(protein_file, data.table = FALSE)
+
+  gwas_prepped <- prepare_data(gwas_df, "gwas")
+  protein_prepped <- prepare_data(protein_df, "protein")
+
+  common_snps <- intersect(gwas_prepped$ascii_snpid, protein_prepped$ascii_snpid)
+
+  if (length(common_snps) < 100) {
+    warning("Too few common SNPs for ", gene, "-", protein)
+    next
+  }
+  gwas_common <- gwas_prepped %>% filter(ascii_snpid %in% common_snps) %>% arrange(ascii_snpid)
+protein_common <- protein_prepped %>% filter(ascii_snpid %in% common_snps) %>% arrange(ascii_snpid)
+
+  stopifnot(all(gwas_common$ascii_snpid == protein_common$ascii_snpid))
+
+  gwas_common$varbeta <- gwas_common$StdErr^2
+  protein_common$varbeta <- protein_common$StdErr^2
+
+  cad_input <- list(
+    snp = gwas_common$SNP,
+    beta = gwas_common$BETA,
+    varbeta = gwas_common$varbeta,
+    MAF = gwas_common$MAF,
+    N = gwas_common$N,
+    type = "cc"
+  )
+
+  protein_input <- list(
+    snp = protein_common$SNP,
+    beta = protein_common$BETA,
+    varbeta = protein_common$varbeta,
+    sdY = 1,
+    MAF = protein_common$MAF,
+    N = protein_common$N,
+    type = "quant"
+  )
+
+  coloc_res <- coloc.abf(cad_input, protein_input)
+
+  results[[paste0(gene, "_vs_", protein)]] <- coloc_res
+}
+
+```
+
+```{r}
+saveRDS(results, file = "coloc_results.rds")
+
+print(coloc_res)
+```
+
