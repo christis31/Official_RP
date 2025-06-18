@@ -108,88 +108,18 @@ write.csv(
 
 5k
 ```{r}
-hits_5k <- findOverlaps(gr_cad, gr_pqtl, maxgap = 5000)
 
-#dataframe
-
-overlap_5k <- as_tibble(data.frame(
-    CAD_index  = queryHits(hits_5k),
-    pQTL_index = subjectHits(hits_5k)
-)) %>%
-  mutate(
-    CAD_marker = mcols(gr_cad)$CAD_marker[CAD_index],
-    pQTL_marker = mcols(gr_pqtl)$pQTL_marker[pQTL_index]
-  ) %>%
-  dplyr::select(CAD_marker, pQTL_marker)
-
-#uplaod to onedrive
-
-saveRDS(
-  overlap_5k,
-  file = "./data\\processed\\overlap_5k.RDS"
-)
-
-write.csv(
-  overlap_5k,
-  file = "./data\\processed\\overlap_5k.csv",
-  row.names = FALSE
-)
 ```
 
 1k 
 ```{r}
 hits_1k <- findOverlaps(gr_cad, gr_pqtl, maxgap = 1000)
 
-#create dataframe
-overlap_1k <- as_tibble(data.frame(
-    CAD_index  = queryHits(hits_1k),
-    pQTL_index = subjectHits(hits_1k)
-)) %>%
-  mutate(
-    CAD_marker = mcols(gr_cad)$CAD_marker[CAD_index],
-    pQTL_marker = mcols(gr_pqtl)$pQTL_marker[pQTL_index]
-  ) %>%
-  dplyr::select(CAD_marker, pQTL_marker)
-
-#upload to onedrive
-saveRDS(
-  overlap_1k,
-  file = "./data\\processed\\overlap_1k.RDS"
-)
-
-write.csv(
-  overlap_1k,
-  file = "./data\\processed\\overlap_1k.csv",
-  row.names = FALSE
-)
+#
 ```
 
 ```{r}
-#1bp
-hits_3 <- findOverlaps(gr_cad, gr_pqtl, maxgap = 3)
 
-#create dataframe
-overlap_3 <- as_tibble(data.frame(
-    CAD_index  = queryHits(hits_3),
-    pQTL_index = subjectHits(hits_3)
-)) %>%
-  mutate(
-    CAD_marker = mcols(gr_cad)$CAD_marker[CAD_index],
-    pQTL_marker = mcols(gr_pqtl)$pQTL_marker[pQTL_index]
-  ) %>%
-  dplyr::select(CAD_marker, pQTL_marker)
-
-#117 to do coloc on
-saveRDS(
-  overlap_3,
-  file = "./data\\processed\\overlap_3.RDS"
-)
-
-write.csv(
-  overlap_3,
-  file = "./data\\processed\\overlap_3.csv",
-  row.names = FALSE
-)
 ```
 
 
@@ -241,68 +171,16 @@ annotated_overlap_500k <- merge(overlap_500k,
                                          by = "pQTL_marker",
                                          all.x = TRUE)
 
-annotated_overlap_5k <- merge(overlap_5k,
-                                         pqtl_annotation,
-                                         by = "pQTL_marker",
-                                         all.x = TRUE)
-
-annotated_overlap_1k <- merge(overlap_1k,
-                                         pqtl_annotation,
-                                         by = "pQTL_marker",
-                                         all.x = TRUE)
 
 annotated_overlap_100k <- merge(overlap_100k,
                                          pqtl_annotation,
                                          by = "pQTL_marker",
                                          all.x = TRUE)
 
-annotated_overlap_3 <- merge(overlap_3,
-                                         pqtl_annotation,
-                                         by = "pQTL_marker",
-                                         all.x = TRUE)
 
-annotated_overlap_100k <- annotated_overlap_100k %>%
-  mutate(pQTL_marker_orig = pQTL_marker) %>%
-  separate(pQTL_marker, into = c("chr", "pos", "RED", "ALT", "rest"), sep = ":", fill = "right")
 
-annotated_overlap_100k$chr <- ifelse(grepl("^chr", annotated_overlap_100k$chr), annotated_overlap_100k$chr, paste0("chr", annotated_overlap_100k$chr))
-annotated_overlap_100k$pos <- as.numeric(annotated_overlap_100k$pos)
+#print annotated 100 and 500
 
-gr_100 <- GRanges(seqnames = annotated_overlap_100k$chr, ranges = IRanges(start = annotated_overlap_100k$pos, end = annotated_overlap_100k$pos))
-  
-annotated_overlap_500k <- annotated_overlap_500k %>%
-  mutate(pQTL_marker_orig = pQTL_marker) %>%
-  separate(pQTL_marker, into = c("chr", "pos", "RED", "ALT", "rest"), sep = ":", fill = "right")
-
-annotated_overlap_500k$chr <- ifelse(grepl("^chr", annotated_overlap_500k$chr), annotated_overlap_500k$chr, paste0("chr", annotated_overlap_500k$chr))
-annotated_overlap_500k$pos <- as.numeric(annotated_overlap_500k$pos)
-
-gr_500 <- GRanges(seqnames = annotated_overlap_500k$chr, ranges = IRanges(start = annotated_overlap_500k$pos, end = annotated_overlap_500k$pos))
-
-chain <- import.chain("./hg38ToHg19.over.chain/hg38ToHg19.over.chain")
-
-lifted_100 <- liftOver(gr_100, chain)%>%
-  unlist()
-  
-annotated_overlap_100k$chr_hg19 <- as.character(seqnames(lifted_100))
-annotated_overlap_100k$pos_hg19 <- start(lifted_100)
-
-lifted_500 <- liftOver(gr_500, chain)
-
-annotated_overlap_500k$chr_hg19 <- as.character(seqnames(lifted_500))
-annotated_overlap_500k$pos_hg19 <- start(lifted_500)
-
-#print annotate_3 and 100 and 500
-saveRDS(
-  annotated_overlap_3,
-  file = "./data\\processed\\annotated_overlap_3.RDS"
-)
-
-write.csv(
-  annotated_overlap_3,
-  file = "./data\\processed\\annotated_overlap_3.csv",
-  row.names = FALSE
-)
 
 saveRDS(
   annotated_overlap_100k,
@@ -339,25 +217,10 @@ overlap_gene_500k <- unique(annotated_overlap_500k$Bioinfomatic.annotated.gene)
 
 overlap_gene_100k <- unique(annotated_overlap_100k$Bioinfomatic.annotated.gene)
 
-overlap_gene_5k <- unique(annotated_overlap_5k$Bioinfomatic.annotated.gene)
-
-overlap_gene_1k <- unique(annotated_overlap_1k$Bioinfomatic.annotated.gene)
-
-overlap_gene_3 <- unique(annotated_overlap_3$Bioinfomatic.annotated.gene)
 
 common_overlap_enz_500k <- intersect(overlap_gene_500k, data_filt_glyenz$enz_gene)
 
 common_overlap_enz_100k <- intersect(overlap_gene_100k, data_filt_glyenz$enz_gene)
-
-common_overlap_enz_5k <- intersect(overlap_gene_5k, data_filt_glyenz$enz_gene)
-
-common_overlap_enz_1k <- intersect(overlap_gene_1k, data_filt_glyenz$enz_gene)
-
-common_overlap_enz_3 <- intersect(overlap_gene_3, data_filt_glyenz$enz_gene)
-
-print(overlap_gene_3)
-
-print(common_overlap_enz_100k)
 
 #check overlap of assay target with targets in enzyme 
 
@@ -365,21 +228,13 @@ overlap_target_500k <- unique(annotated_overlap_500k$Assay.Target)
 
 overlap_target_100k <- unique(annotated_overlap_100k$Assay.Target)
 
-overlap_target_5k <- unique(annotated_overlap_5k$Assay.Target)
 
-overlap_target_1k <- unique(annotated_overlap_1k$Assay.Target)
-
-overlap_target_3 <- unique(annotated_overlap_3$Assay.Target)
 
 common_overlap_target_500k <- intersect(overlap_target_500k, data_filt_glyenz$Gene_name)
 
 common_overlap_target_100k <- intersect(overlap_target_100k, data_filt_glyenz$Gene_name)
 
-common_overlap_target_5k <- intersect(overlap_target_5k, data_filt_glyenz$Gene_name)
 
-common_overlap_target_1k <- intersect(overlap_target_1k, data_filt_glyenz$Gene_name)
-
-common_overlap_target_3 <- intersect(overlap_target_3, data_filt_glyenz$Gene_name)
 
 #overlap with glycosylation in general?
 
@@ -395,20 +250,20 @@ genes <- c("ST3GAL4", "GALNT4", "B3GNT3", "B3GNT8", "FUT9", "ST3GAL5", "B4GALNT2
     filter(enz_gene == gene) %>%
     distinct(Gene_name)
   
-  common_targets <- intersect(gene_targets$Gene_name, common_overlap_target_100k)
+  ppp_gene_target <- pqtl %>%
+    filter(cis.trans == "trans") %>%
+    filter(Bioinfomatic.annotated.gene == gene)%>%
+    distinct(Assay.Target)
+  
+  common_targets <- intersect(gene_targets$Gene_name, common_overlap_target_100k, ppp_gene_target$Assay.Target)
+  
+  #prioritise the ones targeted witht he specific gene. 
   
   # Store in list, named by gene
   common_targets_list[[gene]] <- common_targets
-}
+ }
 
 # To view the results:
 print(common_targets_list)
 
-ST3GAL4_targets <- data_filt_glyenz %>%
-  filter(enz_gene == "ST3GAL4") %>%
-  distinct(Gene_name)
-
-ST3GAL4_common_targets_100k <- intersect(ST3GAL4_targets$Gene_name, common_overlap_target_100k)
-print(ST3GAL4_common_targets_100k)
-```
 
