@@ -87,5 +87,5 @@ filt <- data[data$CHR == top_chr & data$BP >= (top_bp - window) & data$BP <= (to
 
 # Step 4: save output
 filt_ordered <- filt[order(filt$BP), ]
-output_file <- file.path(output_data_rootname, paste0(phenoname, "_for_coloc.txt"))
+output_file <- file.path(output_data_rootname, paste0(phenoname, "_for_coloc_new.txt"))
 write.table(filt_ordered, row.names = FALSE, col.names = TRUE, file = output_file)
