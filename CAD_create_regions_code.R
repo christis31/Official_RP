@@ -33,7 +33,7 @@ gene_regions <- list(
   B3GNT3  = c(chr=19, start=1044133 ,  end=1057083),
   B3GNT8  = c(chr=19, start=4023444,   end=4047439),
   ABO     = c(chr=9,  start=136130563, end=136150630),
-  B4GALNT2= c(chr= 17, start= 7486482, end= 7521582),
+  B4GALNT2= c(chr= 17, start= 47209822, end= 47254202),
   ST3GAL5= c(chr= 2, start= 134587518, end= 134626930),
   FUT9= c(chr = 6, start= 134116091, end= 134122766)
 )
@@ -46,7 +46,7 @@ custom_loci <- list(
   B3GNT8  = c(chr = 19, pos = 41932275),
   FUT9 = c(chr= 6, pos = 96982354),
   ST3GAL5 = c(chr=2, pos=86317195),
-  B4GALNT2 = c(chr=17, pos= 45319008)
+  B4GALNT2 = c(chr=17, pos= 47241642)
 )
 
 if (!(phenoname %in% names(gene_regions))) {
