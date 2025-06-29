@@ -34,7 +34,7 @@ if (!require("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
 BiocManager::install(version = "3.20")
 librarian::shelf(tidyverse, purrr, BiocManager, AnnotationDbi, 
-                 qvalue, GO.db, org.Hs.eg.db, reshape2, UniProt.ws, biomaRt, GenomicRanges, ggplot2, clusterProfiler, stringr, scales, viridis, enrichplot, DOSE)
+                 qvalue, GO.db, org.Hs.eg.db, reshape2, UniProt.ws, biomaRt, GenomicRanges, ggplot2, clusterProfiler, stringr, scales, viridis, enrichplot, DOSE, forcats)
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
@@ -158,7 +158,7 @@ GO_graph_count_ef <- GO_result %>% filter(p.adjust < 0.05) %>% slice(1:20) %>%
   theme_minimal() + 
   xlab("Enrichment Factor") +
   ylab(NULL) + 
-  ggtitle("GO Enrichment Analysis (ORA)")
+  ggtitle("UKB-PPP trans-pQTLs")
 
 
 ggsave(".\\figures\\enrichGO_count_ef.png", plot = GO_graph_count_ef)
@@ -192,7 +192,7 @@ GO_graph_count_ef_pqtl <- GO_result_pqtl %>% filter(p.adjust < 0.05) %>% slice(1
   theme_minimal() + 
   xlab("Enrichment Factor") +
   ylab(NULL) + 
-  ggtitle("GO Enrichment Analysis (ORA) - pQTL")
+  ggtitle("UKB-PPP pQTLs")
 
 
 ggsave(".\\figures\\enrichGO_count_ef_pqtl.png", plot = GO_graph_count_ef_pqtl)
@@ -227,9 +227,145 @@ GO_graph_count_ef_cis <- GO_result_cis %>% filter(p.adjust < 0.05) %>% slice(1:2
   theme_minimal() + 
   xlab("Enrichment Factor") +
   ylab(NULL) + 
-  ggtitle("GO Enrichment Analysis (ORA) - cis-pQTL")
+  ggtitle("GO Enrichment Analysis (ORA), UKB-PPP cis-pQTL")
 
 
 ggsave(".\\figures\\enrichGO_count_ef_cis.png", plot = GO_graph_count_ef_cis)
 ```
+Lets try the KEGF pathway 
+```{r}
+# trans
+kegg_result_trans <- enrichKEGG(
+  gene         = trans_entrez,
+  universe     = reference_entrez,
+  organism     = "hsa",
+  pAdjustMethod = "BH",
+  qvalueCutoff  = 0.05
+)
+head(kegg_result_trans)
+
+# all pQTLs
+kegg_result_pqtl <- enrichKEGG(
+  gene         = pqtl_entrez,
+  universe     = reference_entrez,
+  organism     = "hsa",
+  pAdjustMethod = "BH",
+  qvalueCutoff  = 0.05
+)
+head(kegg_result_pqtl)
+
+# cis
+kegg_result_cis <- enrichKEGG(
+  gene         = cis_entrez,
+  universe     = reference_entrez,
+  organism     = "hsa",
+  pAdjustMethod = "BH",
+  qvalueCutoff  = 0.05
+)
+head(kegg_result_cis)
+
+```
+```{r}
+# Example for all pQTLs
+KEGG_result_pqtl <- as.data.frame(kegg_result_pqtl) %>%
+  filter(p.adjust < 0.05) %>%
+  mutate(
+    EnrichmentFactor = as.numeric(sub("/.*", "", GeneRatio)) / as.numeric(sub(".*/", "", GeneRatio)),
+    Description = str_wrap(Description, width = 40)
+  )
+
+GO_graph_count_ef_pqtl <- KEGG_result_pqtl %>% 
+  slice(1:20) %>%
+  ggplot(
+    aes(EnrichmentFactor, forcats::fct_reorder(Description, EnrichmentFactor))
+  ) +
+  geom_segment(aes(xend = 0, yend = Description)) +
+  geom_point(aes(color = p.adjust, size = Count)) +
+  scale_color_viridis_c(guide = guide_colorbar(reverse = TRUE)) +
+  scale_size_continuous(range = c(1, 7)) +
+  theme_minimal() +
+  xlab("Enrichment Factor") +
+  ylab(NULL) +
+  ggtitle("KEGG Pathway Enrichment (ORA) - All pQTLs")
+
+ggsave(".\\figures\\enrichKEGG_count_ef_pqtl.png", plot = GO_graph_count_ef_pqtl)
+
+KEGG_result_trans <- as.data.frame(kegg_result_trans) %>%
+  filter(p.adjust < 0.05) %>%
+  mutate(
+    EnrichmentFactor = as.numeric(sub("/.*", "", GeneRatio)) / as.numeric(sub(".*/", "", GeneRatio)),
+    Description = str_wrap(Description, width = 40)
+  )
+
+GO_graph_count_ef_trans <- KEGG_result_trans %>% 
+  slice(1:20) %>%
+  ggplot(
+    aes(EnrichmentFactor, forcats::fct_reorder(Description, EnrichmentFactor))
+  ) +
+  geom_segment(aes(xend = 0, yend = Description)) +
+  geom_point(aes(color = p.adjust, size = Count)) +
+  scale_color_viridis_c(guide = guide_colorbar(reverse = TRUE)) +
+  scale_size_continuous(range = c(1, 7)) +
+  theme_minimal() +
+  xlab("Enrichment Factor") +
+  ylab(NULL) +
+  ggtitle("KEGG Pathway Enrichment (ORA) - Trans-pQTLs")
+
+ggsave(".\\figures\\enrichKEGG_count_ef_trans.png", plot = GO_graph_count_ef_trans)
+
+KEGG_result_cis <- as.data.frame(kegg_result_cis) %>%
+  filter(p.adjust < 0.05) %>%
+  mutate(
+    EnrichmentFactor = as.numeric(sub("/.*", "", GeneRatio)) / as.numeric(sub(".*/", "", GeneRatio)),
+    Description = str_wrap(Description, width = 40)
+  )
+
+GO_graph_count_ef_cis <- KEGG_result_cis %>% 
+  slice(1:20) %>%
+  ggplot(
+    aes(EnrichmentFactor, forcats::fct_reorder(Description, EnrichmentFactor))
+  ) +
+  geom_segment(aes(xend = 0, yend = Description)) +
+  geom_point(aes(color = p.adjust, size = Count)) +
+  scale_color_viridis_c(guide = guide_colorbar(reverse = TRUE)) +
+  scale_size_continuous(range = c(1, 7)) +
+  theme_minimal() +
+  xlab("Enrichment Factor") +
+  ylab(NULL) +
+  ggtitle("KEGG Pathway Enrichment (ORA) - Cis-pQTLs")
+
+ggsave(".\\figures\\enrichKEGG_count_ef_cis.png", plot = GO_graph_count_ef_cis)
+```
+
+Enrichment analysis: List of genes where trans-pQTLs are located and the overlap with CAD +/-1k
+
+```{r}
+
+annotated_overlap_1k <- as.data.frame(read.csv(".\\data\\processed\\annotated_overlap_1k.csv"))
+
+#create a list of unique genes being annoatted and located close to the variant pairs 
+trans_CAD_genes <- unique(annotated_overlap_1k$Bioinfomatic.annotated.gene)
+
+trans_CAD_entrez <- mapIds(org.Hs.eg.db, keys = trans_CAD_genes, keytype = "SYMBOL", column = "ENTREZID")
+reference_entrez <- mapIds(org.Hs.eg.db, keys = all_human_genes, keytype = "SYMBOL", column = "ENTREZID")
+
+trans_CAD_entrez <- na.omit(trans_CAD_entrez)
+reference_entrez <- na.omit(reference_entrez)
+```
+
+```{r}
+ora_result <- enrichGO(
+  gene          = trans_CAD_entrez,
+  universe      = reference_entrez,
+  OrgDb         = org.Hs.eg.db,
+  ont           = "MF",
+  pAdjustMethod = "BH",
+  qvalueCutoff  = 0.05,
+  readable      = TRUE
+)
+
+# View results
+head(ora_result)
+```
+
 
