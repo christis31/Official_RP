@@ -61,10 +61,16 @@ gr_cad <- GRanges(
 print(gr_cad)
 
 #expand grcad by +/-100kbp
-gr_cad_100 <- gr_cad
-start(gr_cad_100) <- pmax(1, start(gr_cad) - 100000)
-end(gr_cad_100) <- end(gr_cad) +100000
+gr_cad_100k <- gr_cad
+start(gr_cad_100k) <- pmax(1, start(gr_cad) - 100000)
+end(gr_cad_100k) <- end(gr_cad) +100000
 
+#also make a +/-1k
+gr_cad_1k <- gr_cad
+start(gr_cad_1k) <- pmax(1, start(gr_cad) - 1000)
+end(gr_cad_1k) <- end(gr_cad) +1000
+
+#pqtl genomic ranges
 pqtl$position <- pqtl$GENPOS..hg38.
 pqtl$markername <- pqtl$Variant.ID..CHROM.GENPOS..hg37..A0.A1.imp.v1.
 
@@ -74,6 +80,8 @@ gr_pqtl <-  GRanges(
                        end   = pqtl$position),
     pQTL_marker = pqtl[["markername"]]
 )
+
+
 
 ```
 
@@ -109,30 +117,10 @@ write.csv(
 
 ```
 
-5k
-```{r}
-
-```
-
-1k 
-```{r}
-hits_1k <- findOverlaps(gr_cad, gr_pqtl, maxgap = 1000)
-
-#
-```
 
 ```{r}
-
-```
-
-
-```{r}
-#100kpb look trends in
-
-#map to glycosylation database
-#how many pqtld on proteins that have known glycosylaiton sites
-#how amny trans genes are enzymes
-hits_100k <- findOverlaps(gr_cad_100, gr_pqtl) #is this a problem?
+#100k
+hits_100k <- findOverlaps(gr_cad_100k, gr_pqtl)
 
 #create dataframe
 overlap_100k <- as_tibble(data.frame(
@@ -153,6 +141,31 @@ saveRDS(
 write.csv(
   overlap_100k,
   file = "./data\\processed\\overlap_100k.csv",
+  row.names = FALSE
+)
+
+#1k
+hits_1k <- findOverlaps(gr_cad_1k, gr_pqtl) 
+
+#create dataframe
+overlap_1k <- as_tibble(data.frame(
+    CAD_index  = queryHits(hits_1k),
+    pQTL_index = subjectHits(hits_1k)
+)) %>%
+  mutate(
+    CAD_marker = mcols(gr_cad)$CAD_marker[CAD_index],
+    pQTL_marker = mcols(gr_pqtl)$pQTL_marker[pQTL_index]
+  ) %>%
+  dplyr::select(CAD_marker, pQTL_marker)
+
+saveRDS(
+  overlap_1k,
+  file = "./data\\processed\\overlap_1k.RDS"
+)
+
+write.csv(
+  overlap_1k,
+  file = "./data\\processed\\overlap_1k.csv",
   row.names = FALSE
 )
 ```
@@ -180,6 +193,10 @@ annotated_overlap_100k <- merge(overlap_100k,
                                          by = "pQTL_marker",
                                          all.x = TRUE)
 
+annotated_overlap_1k <- merge(overlap_1k,
+                                         pqtl_annotation,
+                                         by = "pQTL_marker",
+                                         all.x = TRUE)
 
 
 #print annotated 100 and 500
@@ -207,11 +224,23 @@ write.csv(
   row.names = FALSE
 )
 
+saveRDS(
+  annotated_overlap_1k,
+  file = "./data\\processed\\annotated_overlap_1k.RDS"
+)
+
+write.csv(
+  annotated_overlap_1k,
+  file = "./data\\processed\\annotated_overlap_1k.csv",
+  row.names = FALSE
+)
+
 ```
 
 ```{r}
 data_filt_glyenz <- read.csv("./data\\processed\\data_filt_glyenz.csv")
 data_gly <-read.csv("./data\\processed\\data_gly_final.csv")
+data_lectin <- read.csv("./data\\processed\\data_glylect.csv")
 
 #check overlap on annotated gene with enzyme data
 
@@ -237,6 +266,7 @@ common_overlap_target_500k <- intersect(overlap_target_500k, data_filt_glyenz$Ge
 common_overlap_target_100k <- intersect(overlap_target_100k, data_filt_glyenz$Gene_name)
 
 
+overlap_100k
 
 #overlap with glycosylation in general?
 
@@ -274,12 +304,13 @@ common_targets_nonspecific_list <- list()
 genes_nonspecific <- c("ST3GAL4","DPAGT1", "GALNT4", "B3GNT3", "B3GNT8", "FUT9", "ST3GAL5", "B4GALNT2")
 
  for (gene in genes_nonspecific) {
-  gene_targets_nonspecific <- data_filt_glyenz %>%
-    filter(enz_gene == gene) %>%
-    distinct(Gene_name)
+  ppp_gene_target_nonspecific <- pqtl %>%
+    filter(cis.trans == "trans") %>%
+    filter(Bioinfomatic.annotated.gene == gene)%>%
+    distinct(Assay.Target)
   
 common_targets_nonspecific <-
-  intersect(gene_targets_nonspecific$Gene_name, common_overlap_target_100k)
+  intersect(ppp_gene_target_nonspecific$Assay.Target, data_filt_glyenz$Gene_name)
   #prioritise the ones targeted witht he specific gene. 
   
   common_targets_nonspecific_list[[gene]] <- common_targets_nonspecific
@@ -288,4 +319,30 @@ common_targets_nonspecific <-
 print(common_targets_nonspecific_list)
 
 print(common_overlap_enz_100k)
+
+common_targets_lectin_list <- list()
+
+
+genes_lectin <- c("ST3GAL4","DPAGT1", "GALNT4", "B3GNT3", "B3GNT8")
+for (gene in genes_lectin) {
+  gene_targets_lectin <- data_lectin %>%
+    filter(Lectin_Gene_name == gene) %>%
+    distinct(Gene_name)
+  
+  ppp_lectin_target <- pqtl %>%
+    filter(cis.trans == "trans") %>%
+    filter(Bioinfomatic.annotated.gene == gene)%>%
+    distinct(Assay.Target)
+  
+common_targets_lectin <- intersect(
+  intersect(gene_targets_lectin$Gene_name, common_overlap_target_100k),
+  ppp_lectin_target$Assay.Target)
+
+common_targets_lectin_list[[gene]] <- common_targets_lectin
+
+}
+
+print()
+
+print(common_targets_lectin_list)
 ```
